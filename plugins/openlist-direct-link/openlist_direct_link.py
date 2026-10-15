@@ -9,7 +9,7 @@ OpenList 在内网也没关系：MovieClaw 会带着播放器的 User-Agent 替�
 播放器（115 直链与 UA 绑定，这样拿到的才是播放器能用的）。跟跳转落不到外网（OpenList 开了本地
 代理、自己出字节）、OpenList 连不上、路径不在规则里，MovieClaw 都照旧由服务器出字节，播放不受影响。
 
-用到的扩展点：决策钩子 ``playback.strm.direct-link``（MovieClaw 0.38 起；只读查询，不改任何东西）。
+用到的扩展点：决策钩子 ``playback.strm.direct-link``（MovieClaw 0.39 起；只读查询，不改任何东西）。
 """
 
 from __future__ import annotations
