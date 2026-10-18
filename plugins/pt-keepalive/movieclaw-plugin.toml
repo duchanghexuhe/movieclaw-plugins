@@ -1,0 +1,56 @@
+[plugin]
+id = "pt-keepalive"
+title = "PT 站点保活"
+version = "0.1.0"
+entry = "pt_keepalive"
+runtime = "process"
+sdk = "^1.0"
+description = "对已配置的 PT 站点定时保活：维持登录态、尝试每日签到、刷新最后活跃时间；凭据失效及时告警。需要宿主支持 site.proxy.request 操作。"
+
+[requires]
+"scheduled-tasks" = "^1.0"
+"plugin-events" = "^1.0"
+"plugin-data" = "^1.0"
+"plugin-routes" = "^1.0"
+
+[permissions]
+operations = ["site.list", "site.catalog", "site.proxy.request"]
+
+[[events]]
+name = "pt-keepalive.auth.expired"
+title = "PT 站点登录失效"
+
+[[events]]
+name = "pt-keepalive.report.daily"
+title = "PT 保活日报"
+
+[[events]]
+name = "pt-keepalive.report.failures"
+title = "PT 站点保活连续失败"
+
+[[notifications]]
+event = "pt-keepalive.auth.expired"
+title = "{site_name} 登录已失效"
+body = "保活检查发现该站点凭据已失效，请在 设置→站点 更新后重新验证。"
+audience = "admins"
+level = "active"
+default = true
+open = "plugin"
+
+[[notifications]]
+event = "pt-keepalive.report.daily"
+title = "PT 保活日报：{ok_count} 站在线"
+body = "{detail}"
+audience = "admins"
+level = "passive"
+default = false
+open = "plugin"
+
+[[notifications]]
+event = "pt-keepalive.report.failures"
+title = "PT 站点保活：有站点连续失败"
+body = "{detail}"
+audience = "admins"
+level = "active"
+default = true
+open = "plugin"
