@@ -62,10 +62,14 @@ class KeepaliveRunner:
     # ------------------------------------------------------------------ 站点清单
 
     async def enabled_sites(self) -> list[SiteInfo]:
-        """宿主已启用（``enabled``）的站点；NexusPHP 系还要求 ``usable``（已验证通过）。
+        """宿主已启用的站点（``enabled`` 为真）；带上能不能用、以及不能用时的原因。
 
-        自己登录的站点（M-Team）例外：它不用宿主那份 API Key 凭据，宿主把它标成
-        「未验证通过」不代表插件保活不了，所以只要站点还在启用状态就照跑。
+        不能用的站点也**照收**，本轮记「跳过」并把宿主给的失败原因讲出来——否则
+        用户配了个 NexusPHP 站、宿主因为两步验证验证不过，插件一声不吭，人会以为
+        保活在跑。真正要做的判断在 :meth:`run_site` 里。
+
+        自己登录的站点（M-Team）更是不看 ``usable``：它不用宿主那份 API Key 凭据，
+        宿主标「未验证通过」不影响插件保活。
         """
         rows = await self._call("site.list")
         names = await self._catalog_names()
@@ -74,15 +78,14 @@ class KeepaliveRunner:
             if not isinstance(row, dict) or row.get("enabled") is False:
                 continue
             site_id = str(row.get("site_id"))
-            usable = bool(row.get("usable"))
-            if not usable and site_id not in SELF_LOGIN_SITES:
-                continue
             sites.append(
                 SiteInfo(
                     site_id=site_id,
                     display_name=str(row.get("display_name") or names.get(site_id) or site_id),
-                    usable=usable,
+                    usable=bool(row.get("usable")),
                     auth_type=str(row.get("auth_type") or ""),
+                    status=str(row.get("status") or ""),
+                    last_error=str(row.get("last_error") or ""),
                 )
             )
         return sites
@@ -137,6 +140,17 @@ class KeepaliveRunner:
         """跑单站：自己登录的站点走 M-Team 通道，其余按适配器逐步代请求。"""
         if site.site_id in SELF_LOGIN_SITES:
             return await self.run_self_login_site(site)
+        if not site.usable:
+            # 宿主还没认这个站的凭据，插件借不到会话：本轮不发请求。两种情形分开讲，
+            # 别把「刚配好、还在验证」说成故障。
+            if site.status in ("pending", "verifying"):
+                return SiteResult(Outcome.SKIPPED, "宿主的站点凭据还在验证中，下一轮再看")
+            reason = site.last_error or "尚未验证通过"
+            return SiteResult(
+                Outcome.SKIPPED,
+                f"宿主的站点凭据不可用（{reason}）：请到「设置 → 站点」更新凭据并重新验证；"
+                "若该站开了两步验证，改用 Cookie 方式即可绕开",
+            )
         adapter = adapter_for(site)
         if adapter is None:
             return SiteResult(

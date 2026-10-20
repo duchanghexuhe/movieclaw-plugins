@@ -86,10 +86,24 @@ def adapter_for(site: SiteInfo) -> Adapter | None:
     return nexusphp_adapter
 ```
 
+`runner.run_site` 的判断顺序（**这就是「什么时候插件才自己登录」那条边界**）：
+
+1. `site_id in SELF_LOGIN_SITES` → 自己登录（目前只有 mteam）；
+2. 否则宿主没把这个站标成 `usable` → 记「跳过」，带上宿主的 `last_error` 与「改用 Cookie」的
+   提示（`status` 是 `pending`/`verifying` 时改说「还在验证中」）；**不发请求、不告警**；
+3. 否则走适配器代请求。
+
 `site.list` 没有 `framework` 字段，分发按 `auth_type` 兜底：纯 API 站（`apikey`，宿主回的是
 枚举值 `APIKEY`，比对不区分大小写）没有可判定页面，**未适配就跳过**，不冒充失败。
-宿主 26 站里 mteam/sunnypt 是 API 框架，其余是 NexusPHP 页面；mteam 由
-`runner.SELF_LOGIN_SITES` 提前分流，走不到这里。
+宿主 26 站里 mteam/sunnypt 是 API 框架，其余是 NexusPHP 页面；mteam 由第 1 步提前分流，
+sunnypt 落在第 3 步的 `adapter_for` 返回 `None`。
+
+**为什么不让插件也登录 NexusPHP**（用户 2026-10-20 拍板的边界）：宿主自己会维护站点登录态
+（Cookie 过期它自动重登、重验），插件再登一次就是同一账号两套会话，容易互顶；而且宿主的
+凭据能力（加密表、验证状态机、代理出口、每站限流）远强于插件。所以 NexusPHP 站开了两步
+验证时，正确做法是**在「设置 → 站点」把该站改成 Cookie 方式**（宿主的 Cookie 路径从不访问
+登录页，天然绕开动态码），而不是让插件去补登录。宿主侧支持 TOTP 的改动**刻意不做**——
+「尽量不改主程序」。
 
 ### 步骤协议
 

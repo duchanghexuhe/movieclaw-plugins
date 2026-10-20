@@ -30,6 +30,10 @@ class SiteInfo:
     display_name: str
     usable: bool
     auth_type: str
+    #: 宿主的验证状态：pending / verifying / active / failed（缺省为空）
+    status: str = ""
+    #: 宿主给的最近验证失败原因（没失败为空）。只用于把「为什么没保活」讲给用户听
+    last_error: str = ""
 
 
 @dataclass
