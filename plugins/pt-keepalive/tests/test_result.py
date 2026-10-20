@@ -13,11 +13,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from pt_keepalive import state as st  # noqa: E402
-from pt_keepalive.result import (  # noqa: E402
+from pt_keepalive import state as st
+from pt_keepalive.result import (
     Outcome,
-    api_payload_of,
-    judge_api_json,
     judge_nexusphp_page,
     visible_text,
 )
@@ -111,50 +109,6 @@ class TestNexusphpJudge(unittest.TestCase):
         text = visible_text(_page("<script>js()</script><style>.x{}</style>你好"))
         self.assertIn("你好", text)
         self.assertNotIn("js()", text)
-
-
-class TestApiJudge(unittest.TestCase):
-    MARKS = ({"code": "1", "message": "FAIL"}, {"code": "0"}, {"success": True})
-
-    def test_mteam_counterintuitive_success(self):
-        # 2026-10 起的 {code:1, message:FAIL} 实为成功
-        r = judge_api_json({"code": "1", "message": "FAIL", "data": None}, success_marks=self.MARKS)
-        self.assertEqual(r.outcome, Outcome.SIGNIN_OK)
-
-    def test_mteam_legacy_success(self):
-        r = judge_api_json({"code": "0", "message": "SUCCESS"}, success_marks=self.MARKS)
-        self.assertEqual(r.outcome, Outcome.SIGNIN_OK)
-
-    def test_auth_expired_marks(self):
-        r = judge_api_json(
-            {"code": "401", "message": "Full authentication is required to access this resource"},
-            success_marks=self.MARKS,
-        )
-        self.assertEqual(r.outcome, Outcome.FAILED)
-        self.assertTrue(r.auth_expired)
-
-    def test_auth_expired_by_http_status(self):
-        # 站点只回一个空 JSON + HTTP 401 时也要判失效
-        r = judge_api_json({}, success_marks=self.MARKS, status_code=401)
-        self.assertEqual(r.outcome, Outcome.FAILED)
-        self.assertTrue(r.auth_expired)
-
-    def test_http_401_beats_success_looking_body(self):
-        # 反例：401 正文碰巧像成功组合也不采信
-        r = judge_api_json({"code": "0"}, success_marks=self.MARKS, status_code=401)
-        self.assertEqual(r.outcome, Outcome.FAILED)
-        self.assertTrue(r.auth_expired)
-
-    def test_unexpected_payload_is_failure_not_success(self):
-        r = judge_api_json({"code": "999", "message": "????"}, success_marks=self.MARKS)
-        self.assertEqual(r.outcome, Outcome.FAILED)
-        self.assertFalse(r.auth_expired)
-
-    def test_api_payload_of_falls_back_to_text(self):
-        # content-type 缺 JSON 标记时宿主不给 json_body，仍要从 text 解析
-        payload = api_payload_of({"text": '{"code":"1","message":"FAIL"}', "json_body": None})
-        self.assertEqual(payload, {"code": "1", "message": "FAIL"})
-        self.assertIsNone(api_payload_of({"text": "<html>", "json_body": None}))
 
 
 class TestState(unittest.TestCase):

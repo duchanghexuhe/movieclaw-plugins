@@ -36,6 +36,23 @@
 - 失效告警此前先置位再发送 → 发送失败就永久丢失；现在先发后置位，失败下一轮重试。
 - 移除了用不到的 `network = true` 声明（插件无直连出网）。
 
+**2026-10-20 修正（M-Team 改路 + 真实站点验证）：**
+
+- 原方案「借宿主 x-api-key 调 `/api/member/updateLastBrowse`」**实测不成立**：同一 Key 调
+  `/api/member/profile` 返回 `code:"0"`，调该接口一律
+  `{"code":401,"Full authentication is required to access this resource"}`——它只认网页会话。
+  原实现会把 M-Team 每轮判成「凭据失效」并告警。
+- 改为插件自己登录（`pt_keepalive/mteam.py`）：`POST /api/login`（账号+密码+空 turnstile）
+  → `code 1001` 时带 TOTP 动态码重发 → 取响应头 JWT/Did → `profile` → `updateLastBrowse`。
+  凭据存插件设置（`SecretStr`，宿主 SecretBox 加密），会话存插件数据（`secret=True`）。
+- **真实站点验证（2026-10-20，NAS 容器网络直连）**：
+  - 首轮：`signin_ok`「最后浏览时间已刷新」，耗时 1.4s，拿到 JWT（299 字节）与 Did/visitorid；
+  - 次轮：复用会话，站点回 `{"code":"1","message":"FAIL"}` → 判 `login_only`（无需刷新），
+    **不**报警；
+  - 另测：错签名 → 「簽名錯誤」；API Key 调 update → 401；连发登录 → 「請求過於頻繁」；
+    既有 JWT 时再登录被拒（说明缓存会话是必要的，不是可选优化）。
+- 插件单测 80 个全绿；`check_plugin.py` 通过（41 KB，声明 `network = true`）。
+
 **已知平台限制（非本任务缺陷）：**
 
 - Windows 上进程外插件 IPC 依赖 `AF_UNIX`（宿主整个 process-runtime 传输层），
@@ -46,8 +63,9 @@
 **留待用户（需要真实凭据 / 登录态）：**
 
 1. 在真实环境 `mclaw plugin dev plugins/pt-keepalive --once` 或上传正式包走批准安装；
-2. 配置一个真实 NexusPHP 站点 + mteam API Key，观察一轮真实签到/触碰与日报通知；
-3. M-Team `x-api-key` 是否可调 `updateLastBrowse` 的最终确认（当前以 401 失效链路验证）。
+2. 配置一个真实 NexusPHP 站点，观察一轮真实签到与日报通知；
+3. 在插件设置里填 M-Team 账号 / 密码 / TOTP 密钥，观察一轮真实登录与「最后浏览时间」刷新
+   （登录链路已在 NAS 容器网络实测通过，但走宿主插件进程的端到端还没跑）。
 
 ## 宿主侧（SITE_PROXY）验收
 
@@ -61,7 +79,7 @@
 ## 插件侧验收（端到端）
 
 前置：主程序 dev 服务器（`G:\Github\movieclaw\.tmp-uidev\start-uidev.ps1`，API 8001）；
-至少 1 个真实 NexusPHP 站点已配置且 ACTIVE；mteam 已配置（x-api-key）且 ACTIVE。
+至少 1 个真实 NexusPHP 站点已配置且 ACTIVE；M-Team 账号 / 密码 / TOTP 密钥填在插件设置里。
 
 1. **本地检查**：`check_plugin.py plugins/pt-keepalive` 无 ✗；单测全绿
    （三态判定正反例：成功词/幂等词/否定词优先/密码框/CF 特征/剥 script 后匹配）。
@@ -70,9 +88,9 @@
    `pt-keepalive:run`（默认每天 09:17）。
 3. **真实保活轮**（等调度或临时把 cron 改近）：
    - NexusPHP 站：日志出现该站签到请求与三态结果；宿主日志可见代请求记录；
-   - mteam：`updateLastBrowse` 成功（兼容 `code:1/FAIL` 判据）；站内「最后浏览时间」刷新
+   - mteam：先登录（日志出现会话获取），再 `updateLastBrowse`；站内「最后浏览时间」刷新
      （用户肉眼核对，或下一轮 profile 里 lastBrowse 变化）；
-   - 站点配置了代理（site:<id>）时请求走代理（宿主出口层日志核对）。
+   - 站点配置了代理时请求走代理（宿主出口层 / 插件出口日志核对）。
 4. **通知链路**：`pt-keepalive.report.daily` 事件触发 → App/IM 收到日报（标「来自 PT 站点保活」）；
    偏好关闭日报 → 不再收；`auth.expired` 与 `report.failures` 独立于日报开关。
 5. **失效告警流**：临时改坏某站凭据（或用已失效站点）→ 下一轮判定 auth_expired →
@@ -91,13 +109,15 @@
 |---|---|
 | NexusPHP 站改版，签到页选择器全变 | 判 LOGIN_ONLY（保守）；连续 3 轮进「连续失败」通知；不虚报成功 |
 | NexusPHP 站没有签到页（attendance.php 404） | 首页确认登录在线即记 LOGIN_ONLY，**不算失败** |
-| mteam 站点轮换 `_sgin` 密钥 | 触碰判 FAILED（签名拒），3 轮后连续失败告警；升级插件（改常量）恢复 |
-| mteam 返回 `{"code":"1","message":"FAIL","data":null}` | **判成功**（2026-10 反直觉判据），日志注明 |
+| mteam 站点轮换 `_sgin` 密钥 | 判 FAILED「签名错误…插件需要更新」，**不**置凭据失效；连续 3 轮进失败通知 |
+| mteam 返回 `{"code":"1","message":"FAIL","data":null}` | 站点认为无需刷新（间隔过短/已被 mtlogin 刷过）→ 判 `login_only`，不进失败统计 |
 | 某站 Cloudflare challenge / WAF 拦截（401/403） | need_human，不计数、不熔断、不发失效告警；日报提示「需人工」 |
 | 未适配的纯 API 站（sunnypt） | 不发请求，记 skipped，不进失败统计 |
 | 站点凭据被用户禁用 / 尚未验证通过 | site.list 不返回 usable，或宿主 409「已停用 / 尚未验证通过」→ 记 skipped，不告警 |
 | 代请求遇到网络错误 / 5xx | 单站本轮 FAILED，不重试；连续 3 轮进「连续失败」通知（每段失败只报一次） |
-| 代理配置只给 site:mteam | mteam 请求走代理，其余站直连（宿主 egress 标签粒度） |
+| 代理配置只给 pt-keepalive | mteam 登录链路走代理（`net.http_transport("pt-keepalive")`），NexusPHP 站仍由宿主 `site:<id>` 出口决定 |
+| mteam 账号密码错 / 账号被停用 | 判 `auth_expired` 并发一次告警；**不重试**登录（会扣账号尝试次数），下轮再试 |
+| mteam 未填账号密码 | 该站记 `skipped`，不发请求、不告警 |
 | 调度器到点但上一轮还没跑完 | APScheduler max_instances=1 + coalesce（宿主既有行为），不并发 |
 | 同一版本重复上传 | 服务器拒绝（同版本字符串）；走正常升 version 流程 |
 

@@ -1,10 +1,19 @@
 """PT 站点保活：对已配置站点定时维持登录态、尝试签到、刷新最后活跃时间。
 
-宿主凭据体系是唯一真源：插件经宿主操作 ``site.proxy.request`` 借已认证会话发请求
-（凭据不出宿主），经 ``site.list`` 发现启用站点；失效只告警、不自动重登
-（PT 站普遍禁止脚本登录）。定时任务经 ``SCHEDULED_TASKS`` 贡献，用户可在
-「设置 → 定时任务」改周期。风险告知：程序化签到/访问未必被站方计为「用户活跃」，
-插件显示成功只代表请求与判据成立，不承诺免于封号。
+NexusPHP 系站点：经宿主操作 ``site.proxy.request`` 借已认证会话发请求（凭据不出宿主），
+经 ``site.list`` 发现启用站点；失效只告警、不自动重登（PT 站普遍禁止脚本登录），
+由用户去「设置 → 站点」更新凭据。
+
+M-Team：宿主的 API Key 调不动它的保活接口（只认网页会话），这一站由插件用设置里的
+账号密码 + TOTP 自己登录（参见 ``pt_keepalive.mteam`` 与社区方案 scjtqs2/mtlogin）。
+
+定时任务经 ``SCHEDULED_TASKS`` 贡献，用户可在「设置 → 定时任务」改周期。风险告知：
+程序化签到/访问未必被站方计为「用户活跃」，插件显示成功只代表请求与判据成立，
+不承诺免于封号。
+
+契约一律从 SDK / 调度器导入：插件包在独立进程里运行，``movieclaw_api`` 不在它的导入路径上
+（只有 ``movieclaw_sdk`` 及其依赖）。``plugin-data`` / ``plugin-routes`` 这类服务由宿主按
+``ServiceKey`` 名字下发，从 SDK 拿不到键时在 ``apply`` 里按名字现造同版本键。
 
 注意：本模块挂了路由，**不能**启用延迟注解（future annotations）——
 端点参数与返回值的类型必须在模块顶层真实导入，进程外运行时才能解析。
@@ -14,7 +23,7 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter
-from movieclaw_api.plugins.keys import PLUGIN_DATA, PLUGIN_ROUTES
+from movieclaw_kernel import ServiceKey, Stability
 from movieclaw_scheduler import SCHEDULED_TASKS, TaskDefinition, TriggerType
 from movieclaw_sdk import Context, plugin
 from movieclaw_sdk.events import PLUGIN_EVENTS
@@ -22,12 +31,25 @@ from movieclaw_sdk.ops import HOST_OPS
 
 from pt_keepalive import events as plugin_events
 from pt_keepalive.runner import KeepaliveRunner
-from pt_keepalive.settings import Settings
+from pt_keepalive.settings import Settings, mteam_credentials
 
 logger = logging.getLogger("movieclaw_plugins.pt_keepalive")
 
 PLUGIN_ID = "pt-keepalive"
 TASK_KEY = f"{PLUGIN_ID}.run"
+
+#: 宿主的下发键（movieclaw_api/plugins/keys.py）。SDK 目前没有转出这两个键，
+#: 但服务键按「名字 + 版本」认，在插件侧造同规格的键拿得到同一份服务。
+PLUGIN_DATA = ServiceKey(
+    "plugin-data",
+    stability=Stability.EXPERIMENTAL,
+    doc="插件数据：插件自己的状态与挂在实体上的扩展字段（只能读写自己的）",
+)
+PLUGIN_ROUTES = ServiceKey(
+    "plugin-routes",
+    stability=Stability.EXPERIMENTAL,
+    doc="插件路由：挂到 /api/v1/plugins/<条目 id>，签发签名链接",
+)
 
 
 @plugin(
@@ -45,7 +67,7 @@ async def apply(ctx: Context) -> None:
         supported = all(
             ops_client.allowed(op) for op in ("site.list", "site.proxy.request")
         )
-    except Exception:  # noqa: BLE001
+    except Exception:  # 拿不到操作目录就当宿主不支持，不让插件起不来
         logger.exception("获取宿主操作目录失败，视为不支持")
         supported = False
     if not supported:
@@ -54,6 +76,15 @@ async def apply(ctx: Context) -> None:
             "保活任务不注册，插件保持空闲"
         )
         return
+
+    raw = getattr(ctx, "config", None)
+    settings = raw if isinstance(raw, Settings) else Settings.model_validate(raw or {})
+    if mteam_credentials(settings) is None:
+        # 没填不是错：不填就不做 M-Team 这一站。但要让用户知道去哪儿填
+        logger.info(
+            "没有配置 M-Team 账号密码：该站点本轮跳过；"
+            "需要馒头保活请在插件设置里填账号、密码与两步验证密钥"
+        )
 
     events = await ctx.use(PLUGIN_EVENTS).register(
         ctx,

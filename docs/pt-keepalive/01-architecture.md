@@ -42,9 +42,13 @@
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-关键分工：**插件只有「决策」，宿主才有「会话」**。插件永远不接触凭据明文——它把
-「我想对这个站发什么请求」翻译成结构化计划，经宿主操作 `site.proxy.request` 执行，
-拿回的只是响应（状态码/响应头子集/正文文本）。这是整个设计的支点。
+关键分工：**插件只有「决策」，宿主才有「会话」**（M-Team 是唯一例外）。NexusPHP 站的请求
+由插件把「想对这个站发什么请求」翻译成结构化计划，经宿主操作 `site.proxy.request` 执行，
+拿回的只是响应（状态码/响应头子集/正文文本）——插件接触不到它们的凭据。
+
+**M-Team 例外**：它的保活接口只认网页会话，宿主的 API Key 调它一律 401（2026-10-20 实测）。
+这一站由插件用设置里保存的账号密码 + TOTP 登录（凭据进插件设置、SecretStr 加密），
+会话（JWT + 设备指纹）存插件数据跨轮复用；请求直连 `api.m-team.io`（清单 `network = true`）。
 
 ## 三条动作流
 
@@ -70,18 +74,25 @@
 - **范围控制**：签到动作整体可开关（用户决策 #2）；关掉后只访问首页确认登录态。
 - **边界**：`bakatest.php` 答题站、需验证码的签到 → 判「需人工处理」，不发请求，不算失败。
 
-### C. 触碰（最后活跃时间）— M-Team 类专用
+### C. 触碰（最后活跃时间）— M-Team 专用
+
+> **2026-10-20 修正**：下面的「借宿主会话」不成立——`updateLastBrowse` 只认网页会话，
+> 拿宿主的 API Key 调一律 401。现在这一站由插件用**账号密码 + TOTP** 自己登录
+> （与 `scjtqs2/mtlogin` 同一路线），详见 [03-plugin.md](03-plugin.md) 的「M-Team 自登录」。
 
 - **谁需要**：按「最后活跃时间」清理账号的站（M-Team 是实证）。宿主现有动作不覆盖：
   torrent_sync 只拉种子列表（API 站走 /api/torrent/search），不更新「最后浏览」。
-- **动作**（M-Team）：POST `/api/member/updateLastBrowse`（带 `_timestamp` + `_sgin` 签名，
-  密钥来自站点前端 JS，写成常量、站点改版只改常量）→ 成功判据兼容
-  `{code:"1", message:"FAIL", data:null}`（2026-10 起的反直觉组合）与
-  `{success:true}`/`code:0` 两种；`code 401`/`Full authentication` = 凭据失效。
-- **请求头**：Authorization/x-api-key 由**宿主会话自动附加**（SITE_PROXY 的核心价值），
-  插件只补 `Did/visitorid`（从凭据指纹稳定派生，避免每轮被识别为新设备）等非敏感头。
-- **频率**：默认每天 1 次即可（mtlogin 的每 2 小时是「登录态续期」诉求，M-Team JWT
-  由宿主 AuthManager 管理，无需插件高频刷新）。
+- **动作**（M-Team）：`POST /api/login`（账号 + 密码 + 空 turnstile，`code 1001` 时带
+  `otpCode` 再发）→ 取响应头 JWT/Did → `POST /api/member/profile` →
+  `POST /api/member/updateLastBrowse`。每个请求带 `_timestamp` + `_sgin` 签名（密钥来自
+  站点前端 JS，要落在插件里）。
+- **判据**：`{code:"1","message":"FAIL"}` 是「站点认为无需刷新」（不是成功、也不是失效）→
+  记登录在线；`code 401` / 密码错 / 账号不存在 = 凭据失效；「簽名錯誤」= 前端密钥轮换；
+  「請求過於頻繁」= 限流。
+- **请求头**：插件自己伪造官方前端（`Did` / `visitorid` / `version` / `webversion` / `Ts`），
+  `Did` 跟站点下发值滚动，`visitorid` 永久复用。
+- **频率**：默认每天 1 次即可（mtlogin 的每 2 小时是它的自愈节奏；JWT 30 天有效，
+  插件缓存令牌、401 才重登）。
 
 ## 事件与通知
 

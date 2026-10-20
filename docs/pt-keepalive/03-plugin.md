@@ -1,6 +1,7 @@
 # 03 插件设计（plugins/pt-keepalive/）
 
-> 实现于 2026-10-18，2026-10-18 复查后修订。以代码为准，本文记录结构与判据。
+> 实现于 2026-10-18，2026-10-18 复查后修订；2026-10-20 M-Team 改为账密 + TOTP 自登录。
+> 以代码为准，本文记录结构与判据。
 
 ## 目录结构（本仓库）
 
@@ -13,18 +14,21 @@ plugins/pt-keepalive/
 ├── pt_keepalive/
 │   ├── __init__.py              # @plugin 入口 + apply()（只登记）
 │   ├── events.py                # 事件与载荷（清单 [[events]] 一一对应）
-│   ├── settings.py              # Settings(pydantic)：总开关/签到开关/日报开关
-│   ├── runner.py                # 保活轮：site.list → 逐站适配 → 状态机 → 事件
-│   ├── result.py                # 结果模型 + 证据判定纯函数（可单测）
-│   ├── sites/__init__.py        # 分发表 + NexusPHP 模板 + M-Team 专用
+│   ├── settings.py              # Settings(pydantic)：三个开关 + M-Team 账号/密码/TOTP
+│   ├── runner.py                # 保活轮：site.list → 逐站（代请求 / 自登录）→ 状态机 → 事件
+│   ├── mteam.py                 # M-Team：签名、TOTP、登录、刷新最后浏览时间
+│   ├── result.py                # 结果模型 + 页面证据判定纯函数（可单测）
+│   ├── sites/__init__.py        # 分派 + NexusPHP 模板（M-Team 不走这里）
 │   └── state.py                 # PLUGIN_DATA 状态机读写
 └── tests/
-    ├── test_result.py           # 判定正反例 + 状态机
+    ├── test_result.py           # 页面判定正反例 + 状态机
+    ├── test_mteam.py            # 签名/TOTP/响应分类/登录流程（全假响应）
     └── test_runner.py           # 适配器 + mock 宿主操作的整轮
 ```
 
 零 vendor、零 `[dependencies]`：只用宿主自带库（`parsel` 用于剥 script/hidden 后的证据匹配；
-`pydantic` 用于设置与事件载荷；`fastapi` 用于状态路由）。包体约 26 KB。
+`httpx` 用于 M-Team 的直连；`pydantic` 用于设置与事件载荷；`fastapi` 用于状态路由）。
+包体约 41 KB。
 
 ## 清单（movieclaw-plugin.toml）要点
 
@@ -37,13 +41,14 @@ plugins/pt-keepalive/
 
 [permissions]
 operations = ["site.list", "site.catalog", "site.proxy.request"]
+network = true
 ```
 
 - `site.list`：拿已配置且 `usable` 的站点。
 - `site.catalog`：`site.list` 不带展示名，通知文案用 catalog 的 `display_name`（拿不到退回 site_id）。
-- `site.proxy.request`：唯一发站点请求的通道。
-- **不声明 `network = true`**：插件没有任何直连出网（所有请求经宿主会话），声明它只会让用户在
-  安装页看到一个用不到的网络权限。
+- `site.proxy.request`：NexusPHP 系站点发请求的唯一通道。
+- **`network = true`（2026-10-20 起）**：M-Team 的登录链路是插件自己直连 `api.m-team.io`，
+  不再经宿主会话，所以这个权限现在是真需要的（此前「不声明」的理由已不成立）。
 - 三个事件：`auth.expired`（失效，active）、`report.daily`（日报，passive，默认关）、
   `report.failures`（连续失败升级，active，默认开）。
 
@@ -70,23 +75,21 @@ async def apply(ctx: Context) -> None:
 
 ## 站点适配框架
 
-### 分发表
+### 分派
 
 ```python
-SPECIAL_ADAPTERS = {"mteam": mteam_adapter}
+SELF_LOGIN_SITES = ("mteam",)          # runner.py：先分流，走自己的登录通道
 
 def adapter_for(site: SiteInfo) -> Adapter | None:
-    special = SPECIAL_ADAPTERS.get(site.site_id)
-    if special is not None:
-        return special
-    if site.auth_type == "apikey":   # sunnypt 等纯 API 站
-        return None                   # 本轮跳过，不拿 HTML 判定器读 JSON
+    if site.auth_type.strip().lower() == "apikey":  # sunnypt 等纯 API 站
+        return None                                  # 本轮跳过，不拿 HTML 判定器读 JSON
     return nexusphp_adapter
 ```
 
-`site.list` 没有 `framework` 字段，分发只能按 `site_id` 白名单 + `auth_type` 兜底：
-纯 API 站（`apikey`）没有可判定页面，**未适配就跳过**，不冒充失败。宿主 26 站里
-mteam/sunnypt 是 API 框架，其余是 NexusPHP 页面。
+`site.list` 没有 `framework` 字段，分发按 `auth_type` 兜底：纯 API 站（`apikey`，宿主回的是
+枚举值 `APIKEY`，比对不区分大小写）没有可判定页面，**未适配就跳过**，不冒充失败。
+宿主 26 站里 mteam/sunnypt 是 API 框架，其余是 NexusPHP 页面；mteam 由
+`runner.SELF_LOGIN_SITES` 提前分流，走不到这里。
 
 ### 步骤协议
 
@@ -103,10 +106,36 @@ class Step:
   2. `GET attendance.php`（`signin_only=True`）——尝试签到。
   分两步是因为签到页不是每站都有；先确认登录态，签到页 404 只判「登录在线」。
   签到页判定用 `login_confirm=False`（该页通常没有导航栏，不要求登出链接）。
-- `mteam_adapter`：`POST /api/member/updateLastBrowse`（base=api，`_timestamp`+`_sgin` 签名，
-  `Did/visitorid` 由 site_id 稳定派生，不每轮换设备）。
 
 任一步判 `FAILED` / `NEED_HUMAN` 即停止后续步骤。
+
+## M-Team 自登录（不走代请求）
+
+M-Team 在 `runner.SELF_LOGIN_SITES` 里先被分流，**不经过** `adapter_for`：
+它要账号密码 + TOTP 自己登录（`pt_keepalive/mteam.py`），请求由插件进程直接发往
+`https://api.m-team.io`（清单声明 `network = true`，出口跟随「设置 → 网络」里的
+`pt-keepalive` 代理）。
+
+一轮的顺序：
+
+```
+POST /api/login  {username, password, turnstile:"", _timestamp, _sgin}
+  └ code 1001 → 再发一次，带 otpCode=<本地算的 TOTP>
+      └ message=SUCCESS → 取响应头 Authorization(JWT) 与 Did
+POST /api/member/profile          （确认会话有效，非 200 code 时按语义分类）
+POST /api/member/updateLastBrowse （刷新最后浏览时间）
+```
+
+- 会话（`token` / `did` / `visitorid`）存 `PLUGIN_DATA` 的 `mteam_session` 键，
+  `secret=True`（宿主编加密）；下一轮先用缓存令牌，401 再重登一次。
+- `visitorid` 生成一次永久复用；`Did` 跟着每次响应的下发值滚动更新（不换设备）。
+- 每个请求都带 `_sgin = base64(HMAC-SHA1("POST&{path}&{ms}", "HLkPcWmycL57mfJt"))`、
+  `_timestamp`（13 位毫秒）与伪装头（`version=1.1.4` / `webversion=1140` /
+  `referer=origin=https://kp.m-team.cc/` / `Ts`）。
+- 响应分类（`Reply`）：`OK` / `NEED_TOTP` / `NO_CHANGE`（`{code:"1",message:"FAIL"}`）/
+  `AUTH`（密码错、账号不存在、JWT 无效、HTTP 401）/ `SIGNATURE`（签名错误，插件需更新）/
+  `RATE`（限流）/ `UNKNOWN`。只有 `AUTH` 置 `auth_expired`；`NO_CHANGE` 记「登录在线」。
+- 登录被拒不重试（站点会扣账号尝试次数）。
 
 ## 结果判定（result.py，纯函数、单测重点）
 
@@ -130,8 +159,9 @@ class Outcome(Enum):
 5. 「今天已签/请勿重复」→ 幂等成功；明确的否定提示（「回答错误」）优先于成功词；
 6. 都不认识 → `LOGIN_ONLY`（保守），绝不虚报 `SIGNIN_OK`。
 
-API 判定：先看成功组合（含 `{code:"1",message:"FAIL"}` 反直觉形态），再看 HTTP 401/403 或
-`message` 里的失效特征；宿主没解析 `json_body`（站点漏标 content-type）时从 `text` 再解析一次。
+API 判定在 `mteam.py`（`classify` / `classify_update`）：先看 HTTP 401/403 与 `code` 401，
+再看 `code 1001`（要 TOTP）、`code 0` / `message=SUCCESS`（成功），然后是签名错误、限流、
+凭据类文案，最后落到 `UNKNOWN`（按失败记，不置 `auth_expired`）。
 
 ## 状态机（state.py，PLUGIN_DATA）
 
@@ -163,12 +193,16 @@ API 判定：先看成功组合（含 `{code:"1",message:"FAIL"}` 反直觉形�
 ## 设置模型（settings.py）
 
 ```
-enabled: bool = True          # 总开关（False 时任务跑空转，直接返回）
-signin_enabled: bool = True   # 签到动作开关（False → 只访问首页确认登录态）
-daily_report: bool = False    # 日报开关（失效/失败告警不受它控制）
+enabled: bool = True                    # 总开关（False 时任务跑空转，直接返回）
+signin_enabled: bool = True             # 签到动作开关（False → 只访问首页确认登录态）
+daily_report: bool = False              # 日报开关（失效/失败告警不受它控制）
+mteam_username: str = ""                # 馒头账号；留空 = 不做这一站
+mteam_password: SecretStr | None        # 加密保存、界面不回显
+mteam_totp_secret: SecretStr | None     # 两步验证的 Base32；otpauth:// 整条也认
 ```
 
-不设「站点选择」：启用范围 = 宿主已配置且 usable 的站点全集。
+不设「站点选择」：启用范围 = 宿主已配置且 usable 的站点全集。M-Team 的那三个字段是唯一
+由插件自己保存的凭据——宿主只支持 API Key，而保活接口又不认 API Key。
 
 ## 路由（PLUGIN_ROUTES）
 
