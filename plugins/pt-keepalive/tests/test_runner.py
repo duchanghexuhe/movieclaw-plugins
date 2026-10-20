@@ -503,17 +503,54 @@ class TestRunnerRound(unittest.TestCase):
         states = st.normalize(data.store[st.STATE_KEY])
         self.assertEqual(states["sunnypt"]["outcome"], "skipped")
 
-    def test_unusable_sites_are_ignored(self):
+    def test_unusable_site_is_skipped_with_reason(self):
+        # 宿主还没认这个站的凭据（最常见：站点开了两步验证、宿主填不了动态码）：
+        # 本轮不发请求，但要把原因和「改用 Cookie」这条路讲出来，不能一声不吭
+        import asyncio
+
+        runner, data, events, ops = self._runner(
+            {},
+            sites=[
+                {
+                    "site_id": "hdsky",
+                    "display_name": "HDSky",
+                    "usable": False,
+                    "auth_type": "credential",
+                    "last_error": "登录失败：两步验证码错误",
+                }
+            ],
+        )
+        result = asyncio.run(runner.run_round())
+        self.assertEqual(ops.calls, [])  # 一个请求都不发
+        self.assertEqual(result["skipped"], 1)
+        self.assertEqual(result["failed"], 0)  # 不是插件的失败
+        detail = result["sites"]["hdsky"]["detail"]
+        self.assertIn("两步验证码错误", detail)  # 宿主给的原因原样带上
+        self.assertIn("Cookie", detail)  # 给出可行的做法
+        self.assertEqual(events.published, [])  # 不发失效告警
+        states = st.normalize(data.store[st.STATE_KEY])
+        self.assertEqual(states["hdsky"]["outcome"], "skipped")
+
+    def test_site_still_verifying_is_not_reported_as_broken(self):
+        # 刚配好、宿主的验证还在跑：也说「跳过」，但换个说法，别吓人
         import asyncio
 
         runner, _, _, ops = self._runner(
             {},
             sites=[
-                {"site_id": "hdsky", "display_name": "HDSky", "usable": False, "auth_type": "cookie"}
+                {
+                    "site_id": "hdsky",
+                    "display_name": "HDSky",
+                    "usable": False,
+                    "auth_type": "credential",
+                    "status": "verifying",
+                }
             ],
         )
         result = asyncio.run(runner.run_round())
-        self.assertEqual(result["sites"], {})
+        detail = result["sites"]["hdsky"]["detail"]
+        self.assertIn("验证中", detail)
+        self.assertNotIn("两步验证", detail)
         self.assertEqual(ops.calls, [])
 
     def test_disabled_site_is_not_visited(self):

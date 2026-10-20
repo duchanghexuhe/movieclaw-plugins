@@ -113,7 +113,9 @@
 | mteam 返回 `{"code":"1","message":"FAIL","data":null}` | 站点认为无需刷新（间隔过短/已被 mtlogin 刷过）→ 判 `login_only`，不进失败统计 |
 | 某站 Cloudflare challenge / WAF 拦截（401/403） | need_human，不计数、不熔断、不发失效告警；日报提示「需人工」 |
 | 未适配的纯 API 站（sunnypt） | 不发请求，记 skipped，不进失败统计 |
-| 站点凭据被用户禁用 / 尚未验证通过 | site.list 不返回 usable，或宿主 409「已停用 / 尚未验证通过」→ 记 skipped，不告警 |
+| 站点凭据被用户禁用 | `site.list` 回 `enabled=false` → 不收进本轮，什么都不记 |
+| 站点在宿主那边没验证通过（典型：开了两步验证 + 账号密码方式） | 记 skipped，**带上宿主的 `last_error`** 与「改用 Cookie」提示，不发请求、不告警 |
+| 站点刚配好、宿主还在验证（pending/verifying） | 记 skipped，说「还在验证中」，不渲染成故障 |
 | 代请求遇到网络错误 / 5xx | 单站本轮 FAILED，不重试；连续 3 轮进「连续失败」通知（每段失败只报一次） |
 | 代理配置只给 pt-keepalive | mteam 登录链路走代理（`net.http_transport("pt-keepalive")`），NexusPHP 站仍由宿主 `site:<id>` 出口决定 |
 | mteam 账号密码错 / 账号被停用 | 判 `auth_expired` 并发一次告警；**不重试**登录（会扣账号尝试次数），下轮再试 |
