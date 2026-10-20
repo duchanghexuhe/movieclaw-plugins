@@ -1,7 +1,11 @@
 """保活轮：site.list 取启用站点 → 逐站适配 → 代请求 → 三态判定 → 状态机 → 事件。
 
-站点请求全部经宿主 ``site.proxy.request`` 代发（借宿主已认证会话，插件接触不到
-凭据）；请求节奏由宿主每站限流兜底，这里逐站串行即可。
+站点请求分两条路：
+
+- NexusPHP 系站点经宿主 ``site.proxy.request`` 代发（借宿主已认证会话，插件接触不到
+  凭据），请求节奏由宿主每站限流兜底，这里逐站串行即可；
+- M-Team 用插件设置里保存的账号密码 + TOTP 自己登录（它的保活接口只认网页会话），
+  会话（JWT + 设备指纹）存插件数据，下一轮复用。
 """
 
 from __future__ import annotations
@@ -19,11 +23,15 @@ from pt_keepalive.events import (
     AuthExpired,
     DailyReport,
 )
+from pt_keepalive.mteam import SESSION_KEY, MTeamClient, Session
 from pt_keepalive.result import Outcome, SiteResult
-from pt_keepalive.settings import Settings
+from pt_keepalive.settings import Settings, mteam_credentials
 from pt_keepalive.sites import SiteInfo, Step, adapter_for, step_response
 
 logger = logging.getLogger("movieclaw_plugins.pt_keepalive")
+
+#: 自己登录的站点（不走宿主代请求）。键是宿主 ``site.list`` 的 site_id
+SELF_LOGIN_SITES = ("mteam",)
 
 #: 宿主 409 且消息含这些特征 → 本轮没访问（站点未配置 / 停用 / 还没验证通过）
 _HOST_SKIP_MARKS = ("未配置", "已停用", "尚未验证通过")
@@ -54,19 +62,26 @@ class KeepaliveRunner:
     # ------------------------------------------------------------------ 站点清单
 
     async def enabled_sites(self) -> list[SiteInfo]:
-        """宿主已配置且 usable 的站点，带上能拿到的展示名。"""
+        """宿主已启用（``enabled``）的站点；NexusPHP 系还要求 ``usable``（已验证通过）。
+
+        自己登录的站点（M-Team）例外：它不用宿主那份 API Key 凭据，宿主把它标成
+        「未验证通过」不代表插件保活不了，所以只要站点还在启用状态就照跑。
+        """
         rows = await self._call("site.list")
         names = await self._catalog_names()
         sites: list[SiteInfo] = []
         for row in rows or []:
-            if not isinstance(row, dict) or not row.get("usable"):
+            if not isinstance(row, dict) or row.get("enabled") is False:
                 continue
             site_id = str(row.get("site_id"))
+            usable = bool(row.get("usable"))
+            if not usable and site_id not in SELF_LOGIN_SITES:
+                continue
             sites.append(
                 SiteInfo(
                     site_id=site_id,
                     display_name=str(row.get("display_name") or names.get(site_id) or site_id),
-                    usable=True,
+                    usable=usable,
                     auth_type=str(row.get("auth_type") or ""),
                 )
             )
@@ -84,7 +99,7 @@ class KeepaliveRunner:
             if not self.ops.allowed("site.catalog"):
                 return {}
             rows = await self.ops.call("site.catalog", {})
-        except Exception:  # noqa: BLE001 - 展示名是锦上添花，失败不拖垮整轮
+        except Exception:  # 展示名是锦上添花，失败不拖垮整轮
             logger.debug("读取站点目录失败，展示名退回 site_id", exc_info=True)
             return {}
         return {
@@ -119,7 +134,9 @@ class KeepaliveRunner:
             return {"_error": message}
 
     async def run_site(self, site: SiteInfo) -> SiteResult:
-        """跑单站：步骤依次执行，最后一步的判定即本轮结果。"""
+        """跑单站：自己登录的站点走 M-Team 通道，其余按适配器逐步代请求。"""
+        if site.site_id in SELF_LOGIN_SITES:
+            return await self.run_self_login_site(site)
         adapter = adapter_for(site)
         if adapter is None:
             return SiteResult(
@@ -157,6 +174,29 @@ class KeepaliveRunner:
         assert last is not None
         return last
 
+    # ------------------------------------------------------------------ 自己登录的站点
+
+    async def run_self_login_site(self, site: SiteInfo) -> SiteResult:
+        """M-Team：账号密码 + TOTP 登录网页会话，再刷新最后浏览时间。
+
+        会话（JWT + 设备指纹）存插件数据并跨轮复用：既能少走登录（登录失败会消耗
+        账号的尝试次数），也保住服务端认可的 ``Did``（每轮换设备会被风控盯上）。
+        """
+        creds = mteam_credentials(self.config)
+        if creds is None:
+            return SiteResult(
+                Outcome.SKIPPED,
+                "没有配置 M-Team 账号密码（设置里填好账号、密码与两步验证密钥才会做这一站）",
+            )
+        raw_session = await self.data.get(SESSION_KEY, default=None)
+        client = MTeamClient(credentials=creds, session=Session.from_dict(raw_session))
+        try:
+            result = await client.run()
+        finally:
+            await client.aclose()
+        await self.data.set(SESSION_KEY, client.session.to_dict(), secret=True)
+        return result
+
     # ------------------------------------------------------------------ 整轮
 
     async def run_round(self) -> dict:
@@ -178,7 +218,7 @@ class KeepaliveRunner:
         for site in sites:
             try:
                 result = await self.run_site(site)
-            except Exception:  # noqa: BLE001 - 单站异常不拖垮整轮
+            except Exception:  # 单站异常不拖垮整轮
                 logger.exception("站点 %s 保活轮异常", site.site_id)
                 result = SiteResult(Outcome.FAILED, "执行异常，见插件日志")
 
@@ -192,7 +232,7 @@ class KeepaliveRunner:
                         AUTH_EXPIRED, AuthExpired(site_id=site.site_id, site_name=site.display_name)
                     )
                     alerted = True
-                except Exception:  # noqa: BLE001 - 通知失败不该丢掉站点结果
+                except Exception:  # 通知失败不该丢掉站点结果
                     logger.exception("站点 %s 失效告警发送失败", site.site_id)
                     alerted = False
 
@@ -262,7 +302,7 @@ class KeepaliveRunner:
                     detail=_report_detail(summary, failures),
                 ),
             )
-        except Exception:  # noqa: BLE001
+        except Exception:  # 通知失败不影响本轮结果落库
             logger.exception("保活汇总事件 %s 发送失败", getattr(event, "name", event))
 
     # ------------------------------------------------------------------ 状态查询（status 路由用）
@@ -274,6 +314,8 @@ class KeepaliveRunner:
             "enabled": self.config.enabled,
             "signin_enabled": self.config.signin_enabled,
             "daily_report": self.config.daily_report,
+            # 只报「填没填」，绝不回显账号密码
+            "mteam_configured": mteam_credentials(self.config) is not None,
             "sites": {
                 sid: {
                     "name": entry.get("site_name") or sid,

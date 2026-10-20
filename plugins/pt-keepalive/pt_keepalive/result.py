@@ -17,7 +17,6 @@
 
 from __future__ import annotations
 
-import json
 import re
 from dataclasses import dataclass, field
 from enum import Enum
@@ -104,15 +103,6 @@ CHALLENGE_PATTERNS = (
     re.compile(r"cf[- ]challenge", re.I),
     re.compile(r"checking your browser", re.I),
     re.compile(r"enable javascript and cookies", re.I),
-)
-
-#: API 型站点（M-Team）凭据失效特征
-API_AUTH_EXPIRED_MARKS = (
-    "full authentication",  # Full authentication is required...
-    "unauthorized",
-    "令牌",  # M-Team 中文错误：令牌已过期/无效
-    "請先登入",
-    "请先登录",
 )
 
 
@@ -224,57 +214,3 @@ def judge_nexusphp_page(
         # 还挂着签到按钮且没有成功提示 = 未确认；登录是有效的
         return SiteResult(Outcome.LOGIN_ONLY, "登录在线，签到未确认（页面仍显示签到按钮）")
     return SiteResult(Outcome.LOGIN_ONLY, "登录在线，签到未确认")
-
-
-def judge_api_json(
-    payload: dict, *, success_marks: tuple[dict, ...], status_code: int = 200
-) -> SiteResult:
-    """JSON API 响应 → 结果（M-Team 类）。
-
-    ``success_marks`` 每项是一个「键路径 → 期望值」的组合，任一命中即成功；
-    键路径按 ``a.b.c`` 取值。这样能表达 M-Team 那种
-    ``{"code":"1","message":"FAIL"}`` 反直觉成功组合，站点改版只改常量。
-
-    HTTP 401/403 先于成功判据：被拒绝的响应即便正文像成功也不采信。
-    """
-    message = str(payload.get("message") or payload.get("msg") or "")
-    if status_code in (401, 403) or str(payload.get("code")) in ("401", "403"):
-        detail = message or f"HTTP {status_code}"
-        return SiteResult(Outcome.FAILED, f"站点返回凭据失效：{detail}", auth_expired=True)
-    for mark in success_marks:
-        if all(_dig(payload, path) == want for path, want in mark.items()):
-            return SiteResult(Outcome.SIGNIN_OK, "触碰成功（最后活跃时间已刷新）")
-    lowered = f"{message} {payload}".lower()
-    for m in API_AUTH_EXPIRED_MARKS:
-        if m.lower() in lowered:
-            return SiteResult(Outcome.FAILED, f"站点返回凭据失效：{message or m}", auth_expired=True)
-    return SiteResult(Outcome.FAILED, f"站点返回未预期的响应：{message or str(payload)[:120]}")
-
-
-def api_payload_of(response: dict[str, Any]) -> dict | None:
-    """从宿主代请求响应里取 JSON 对象。
-
-    宿主只在 ``content-type`` 含 json 时才解析 ``json_body``；站点偶尔漏标这个头，
-    这里再看一眼 ``text``，避免把合法 JSON 当成「非 JSON 响应」误判失败。
-    """
-    payload = response.get("json_body")
-    if isinstance(payload, dict):
-        return payload
-    text = response.get("text")
-    if isinstance(text, str) and text.strip():
-        try:
-            parsed = json.loads(text)
-        except ValueError:
-            return None
-        return parsed if isinstance(parsed, dict) else None
-    return None
-
-
-def _dig(payload: dict, dotted: str):
-    """按 a.b.c 取嵌套值；中途不是字典就返回 None。"""
-    node: object = payload
-    for key in dotted.split("."):
-        if not isinstance(node, dict):
-            return None
-        node = node.get(key)
-    return node

@@ -9,14 +9,13 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from pt_keepalive import state as st  # noqa: E402
-from pt_keepalive.result import Outcome  # noqa: E402
-from pt_keepalive.runner import KeepaliveRunner  # noqa: E402
-from pt_keepalive.settings import Settings  # noqa: E402
-from pt_keepalive.sites import (  # noqa: E402
+from pt_keepalive import state as st
+from pt_keepalive.result import Outcome
+from pt_keepalive.runner import KeepaliveRunner
+from pt_keepalive.settings import Settings
+from pt_keepalive.sites import (
     SiteInfo,
     adapter_for,
-    mteam_adapter,
     nexusphp_adapter,
     step_response,
 )
@@ -67,61 +66,22 @@ class TestAdapters(unittest.TestCase):
         self.assertEqual(result.outcome, Outcome.FAILED)
         self.assertTrue(result.auth_expired)
 
-    def test_mteam_plan_posts_update_last_browse(self):
-        steps = mteam_adapter(_site("mteam", auth_type="apikey"))
-        self.assertEqual(len(steps), 1)
-        plan = steps[0].request
-        self.assertEqual(plan.method, "POST")
-        self.assertEqual(plan.path, "/api/member/updateLastBrowse")
-        self.assertEqual(plan.base, "api")
-        body = plan.body
-        assert isinstance(body, dict)
-        self.assertIn("_timestamp", body)
-        self.assertIn("_sgin", body)
-        self.assertEqual(plan.headers["referer"], "https://tp.m-team.cc/")
+    def test_mteam_is_not_dispatched_to_nexusphp(self):
+        # M-Team 自己登录（只认网页会话），不走适配器分派，也不被当成 HTML 站
+        self.assertIsNone(adapter_for(_site("mteam", auth_type="APIKEY")))
 
-    def test_mteam_device_fingerprint_stable(self):
-        # 同一站点两次构造的 Did 一致（不每轮换设备）
-        p1 = mteam_adapter(_site("mteam"))[0].request
-        p2 = mteam_adapter(_site("mteam"))[0].request
-        self.assertEqual(p1.headers["Did"], p2.headers["Did"])
-        # 不同站点指纹不同
-        p3 = mteam_adapter(SiteInfo("other", "Other", True, "apikey"))[0].request
-        self.assertNotEqual(p1.headers["Did"], p3.headers["Did"])
-
-    def test_mteam_judge_counterintuitive_success(self):
-        judge = mteam_adapter(_site("mteam"))[0].judge
-        r = judge(
-            step_response({"status_code": 200, "json_body": {"code": "1", "message": "FAIL"}})
-        )
-        self.assertEqual(r.outcome, Outcome.SIGNIN_OK)
-
-    def test_mteam_judge_parses_text_when_host_did_not(self):
-        # 宿主只在 content-type 含 json 时解析 json_body；漏标时自己解析 text
-        judge = mteam_adapter(_site("mteam"))[0].judge
-        r = judge(
-            step_response({"status_code": 200, "text": '{"code":"1","message":"FAIL"}'})
-        )
-        self.assertEqual(r.outcome, Outcome.SIGNIN_OK)
-
-    def test_mteam_judge_http_401_expires(self):
-        judge = mteam_adapter(_site("mteam"))[0].judge
-        r = judge(step_response({"status_code": 401, "text": "Full authentication is required"}))
-        self.assertEqual(r.outcome, Outcome.FAILED)
-        self.assertTrue(r.auth_expired)
-
-    def test_mteam_judge_non_json(self):
-        judge = mteam_adapter(_site("mteam"))[0].judge
-        r = judge(step_response({"status_code": 200, "text": "<html>Gateway Timeout</html>"}))
-        self.assertEqual(r.outcome, Outcome.FAILED)
-
-    def test_dispatch_mteam_special_others_nexusphp(self):
-        self.assertIs(adapter_for(_site("mteam", auth_type="apikey")), mteam_adapter)
+    def test_dispatch_nexusphp_sites(self):
         self.assertIs(adapter_for(_site("hdsky")), nexusphp_adapter)
 
     def test_unadapted_api_site_is_not_nexusphp(self):
         # sunnypt 这类纯 API 站没有可判定的页面：不套 HTML 模板，本轮跳过
         self.assertIsNone(adapter_for(_site("sunnypt", auth_type="apikey")))
+
+    def test_dispatch_accepts_host_enum_spelling(self):
+        # 宿主 site.list 回的是枚举值 APIKEY（MovieClaw v0.39.0 实测），大小写不能影响分派
+        self.assertIsNone(adapter_for(_site("sunnypt", auth_type="APIKEY")))
+        self.assertIsNone(adapter_for(_site("sunnypt", auth_type="ApiKey")))
+        self.assertIs(adapter_for(_site("hdsky", auth_type="COOKIE")), nexusphp_adapter)
 
 
 class _FakeData:
@@ -129,12 +89,15 @@ class _FakeData:
 
     def __init__(self) -> None:
         self.store: dict[str, Any] = {}
+        self.secret_writes: set[str] = set()
 
     async def get(self, key: str, *, default: Any = None, **kw: Any) -> Any:
         return self.store.get(key, default)
 
-    async def set(self, key: str, value: Any, **kw: Any) -> None:
+    async def set(self, key: str, value: Any, *, secret: bool = False, **kw: Any) -> None:
         self.store[key] = value
+        if secret:
+            self.secret_writes.add(key)
 
 
 class _FakeEvents:
@@ -274,18 +237,18 @@ class TestRunnerRound(unittest.TestCase):
         states = st.normalize(result["states"])
         self.assertEqual(states["hdsky"]["site_name"], "HDSky")
 
-    def test_round_success_and_expired_alert(self):
+    def test_round_two_nexusphp_sites(self):
         runner, data, events, ops = self._runner(
             {
                 ("site.proxy.request", "hdsky", "index.php"): _html(_LOGGED_IN),
-                ("site.proxy.request", "hdsky", "attendance.php"): _html(
-                    "签到成功，获得 100 魔力"
-                ),
-                ("site.proxy.request", "mteam"): {
-                    "status_code": 200,
-                    "json_body": {"code": "1", "message": "FAIL", "data": None},
-                },
-            }
+                ("site.proxy.request", "hdsky", "attendance.php"): _html("签到成功，获得 100 魔力"),
+                ("site.proxy.request", "chdbits", "index.php"): _html(_LOGGED_IN),
+                ("site.proxy.request", "chdbits", "attendance.php"): _html("签到成功，获得 20 魔力"),
+            },
+            sites=[
+                {"site_id": "hdsky", "usable": True, "auth_type": "cookie"},
+                {"site_id": "chdbits", "usable": True, "auth_type": "cookie"},
+            ],
         )
         import asyncio
 
@@ -293,18 +256,15 @@ class TestRunnerRound(unittest.TestCase):
         self.assertEqual(result["signin"], 2)
         self.assertEqual(result["failed"], 0)
         self.assertEqual(events.published, [])  # 无失效、日报默认关
-        # mteam 走 API 适配器（base=api），hdsky 走 NexusPHP（base=web）
-        self.assertTrue(any(c["base"] == "api" for c in ops.calls))
+        # 两个站都走宿主代请求（base=web）
+        self.assertTrue(all(c["base"] == "web" for c in ops.calls))
+        self.assertEqual(len(ops.calls), 4)
 
     def test_round_expired_409_alerts_once(self):
         runner, data, events, _ = self._runner(
             {
                 ("site.proxy.request", "hdsky", "index.php"): _html(_LOGGED_IN),
                 ("site.proxy.request", "hdsky", "attendance.php"): _html("签到成功"),
-                ("site.proxy.request", "mteam"): {
-                    "status_code": 200,
-                    "json_body": {"code": "1", "message": "FAIL", "data": None},
-                },
             },
             auth_409={"hdsky"},
         )
@@ -324,6 +284,92 @@ class TestRunnerRound(unittest.TestCase):
         asyncio.run(runner.run_round())
         expired2 = [p for name, p in events.published if getattr(p, "site_id", None) == "hdsky"]
         self.assertEqual(len(expired2), 1)
+
+    def test_mteam_without_credentials_is_skipped(self):
+        runner, data, events, ops = self._runner(
+            {},
+            sites=[{"site_id": "mteam", "usable": True, "auth_type": "APIKEY"}],
+        )
+        import asyncio
+
+        result = asyncio.run(runner.run_round())
+        self.assertEqual(result["skipped"], 1)
+        self.assertEqual(result["failed"], 0)
+        self.assertEqual(events.published, [])
+        self.assertEqual(ops.calls, [])  # 不借宿主会话，也不发任何请求
+        states = st.normalize(data.store[st.STATE_KEY])
+        self.assertEqual(states["mteam"]["outcome"], "skipped")
+
+    def test_mteam_uses_saved_session_and_persists_new_one(self):
+        """M-Team 走自己的登录通道：读缓存会话、把新会话写回（secret=True）。"""
+        import asyncio
+        from unittest import mock
+
+        from pt_keepalive import mteam as mteam_mod
+        from pt_keepalive.result import SiteResult
+
+        seen: dict[str, Any] = {}
+
+        class _StubClient:
+            def __init__(self, *, credentials, session):
+                seen["credentials"] = credentials
+                seen["session_in"] = session
+                self.session = mteam_mod.Session(token="NEW", did="D", visitorid="V")
+
+            async def run(self):
+                return SiteResult(Outcome.SIGNIN_OK, "最后浏览时间已刷新")
+
+            async def aclose(self):
+                return None
+
+        runner, data, events, ops = self._runner(
+            {},
+            config=Settings(
+                mteam_username="sh172736242",
+                mteam_password="pw",
+                mteam_totp_secret="JBSWY3DPEHPK3PXP",
+            ),
+            sites=[{"site_id": "mteam", "usable": True, "auth_type": "APIKEY"}],
+        )
+        data.store[mteam_mod.SESSION_KEY] = {"token": "OLD", "did": "d", "visitorid": "v"}
+        with mock.patch("pt_keepalive.runner.MTeamClient", _StubClient):
+            result = asyncio.run(runner.run_round())
+
+        self.assertEqual(result["signin"], 1)
+        self.assertEqual(ops.calls, [])  # 不借宿主会话
+        self.assertEqual(seen["credentials"].username, "sh172736242")
+        self.assertEqual(seen["session_in"].token, "OLD")  # 复用了缓存会话
+        self.assertEqual(data.store[mteam_mod.SESSION_KEY]["token"], "NEW")
+        self.assertIn(mteam_mod.SESSION_KEY, data.secret_writes)  # 令牌加密落盘
+
+    def test_mteam_auth_failure_alerts_with_site_name(self):
+        import asyncio
+        from unittest import mock
+
+        from pt_keepalive import mteam as mteam_mod
+        from pt_keepalive.result import SiteResult
+
+        class _StubClient:
+            def __init__(self, *, credentials, session):
+                self.session = mteam_mod.Session()
+
+            async def run(self):
+                return SiteResult(Outcome.FAILED, "登录被拒：密碼錯誤", auth_expired=True)
+
+            async def aclose(self):
+                return None
+
+        runner, data, events, _ = self._runner(
+            {},
+            config=Settings(mteam_username="u", mteam_password="pw"),
+            sites=[{"site_id": "mteam", "usable": True, "auth_type": "APIKEY"}],
+            catalog=[{"site_id": "mteam", "display_name": "M-Team"}],
+        )
+        with mock.patch("pt_keepalive.runner.MTeamClient", _StubClient):
+            asyncio.run(runner.run_round())
+        alerted = [p for name, p in events.published if getattr(p, "site_id", None) == "mteam"]
+        self.assertEqual(len(alerted), 1)
+        self.assertEqual(alerted[0].site_name, "M-Team")
 
     def test_alert_publish_failure_is_retried(self):
         import asyncio
@@ -350,19 +396,22 @@ class TestRunnerRound(unittest.TestCase):
             {
                 ("site.proxy.request", "hdsky", "index.php"): _html(_LOGGED_IN),
                 ("site.proxy.request", "hdsky", "attendance.php"): _html("签到成功，获得 10 魔力"),
-                ("site.proxy.request", "mteam"): {
-                    "status_code": 200,
-                    "json_body": {"code": "1", "message": "FAIL"},
-                },
+                ("site.proxy.request", "chdbits", "index.php"): _html(_LOGGED_IN),
+                ("site.proxy.request", "chdbits", "attendance.php"): _html("签到成功，获得 10 魔力"),
             },
             config=Settings(daily_report=True),
+            sites=[
+                {"site_id": "hdsky", "usable": True, "auth_type": "cookie"},
+                {"site_id": "chdbits", "usable": True, "auth_type": "cookie"},
+            ],
         )
         asyncio.run(runner.run_round())
         reports = [p for name, p in events.published if "daily" in str(name)]
         self.assertEqual(len(reports), 1)
         # 通知模板用 {detail}，载荷里必须有非空字符串
-        self.assertIn("在线 2 站", reports[0].detail)
+        self.assertIn("在线 2 站（签到成功 2）", reports[0].detail)
         self.assertEqual(reports[0].ok_count, 2)
+        self.assertEqual(reports[0].signin_count, 2)
 
     def test_consecutive_failures_alert_even_with_report_off(self):
         # 日报默认关闭；连续失败必须另走一条默认开的通知，否则用户永远看不到
@@ -466,6 +515,49 @@ class TestRunnerRound(unittest.TestCase):
         result = asyncio.run(runner.run_round())
         self.assertEqual(result["sites"], {})
         self.assertEqual(ops.calls, [])
+
+    def test_disabled_site_is_not_visited(self):
+        # 站点在宿主里被关掉（enabled=false）：连 M-Team 也不该保活
+        import asyncio
+
+        runner, _, _, ops = self._runner(
+            {},
+            config=Settings(mteam_username="u", mteam_password="pw"),
+            sites=[
+                {"site_id": "hdsky", "usable": True, "enabled": False, "auth_type": "cookie"},
+                {"site_id": "mteam", "usable": True, "enabled": False, "auth_type": "APIKEY"},
+            ],
+        )
+        result = asyncio.run(runner.run_round())
+        self.assertEqual(result["sites"], {})
+        self.assertEqual(ops.calls, [])
+
+    def test_mteam_unverified_still_keepalive(self):
+        # 宿主把 M-Team 的 API Key 标成未验证通过，也不该拦住插件自己登录保活
+        import asyncio
+        from unittest import mock
+
+        from pt_keepalive import mteam as mteam_mod
+        from pt_keepalive.result import SiteResult
+
+        class _StubClient:
+            def __init__(self, *, credentials, session):
+                self.session = mteam_mod.Session()
+
+            async def run(self):
+                return SiteResult(Outcome.SIGNIN_OK, "最后浏览时间已刷新")
+
+            async def aclose(self):
+                return None
+
+        runner, _, _, _ = self._runner(
+            {},
+            config=Settings(mteam_username="u", mteam_password="pw"),
+            sites=[{"site_id": "mteam", "usable": False, "enabled": True, "auth_type": "APIKEY"}],
+        )
+        with mock.patch("pt_keepalive.runner.MTeamClient", _StubClient):
+            result = asyncio.run(runner.run_round())
+        self.assertEqual(result["sites"]["mteam"]["outcome"], "signin_ok")
 
     def test_signin_disabled_still_confirms_login(self):
         import asyncio

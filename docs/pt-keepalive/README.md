@@ -50,8 +50,14 @@ flexget_qbittorrent_mod（fqm）、pt-tools 的站点探测分类学。
 | # | 决策 | 内容 |
 |---|---|---|
 | 1 | 登录态路线 | **主程序先行**：先给主程序加 `SITE_PROXY` 开放能力（插件借宿主会话发请求、拿不到凭据明文），插件从第一版就零重复填写，完全复用宿主登录态 |
-| 2 | 功能范围 | **保活+签到+触碰**：访问续 Cookie + attendance 签到（整体可关）+ M-Team 类「最后浏览」触碰；**不含自动账密重登**，Cookie 失效只报警 |
+| 2 | 功能范围 | **保活+签到+触碰**：访问续 Cookie + attendance 签到（整体可关）+ M-Team 类「最后浏览」触碰；NexusPHP 系 Cookie 失效只报警不重登 |
 | 3 | 站点广度 | **框架分型+常用站**：NexusPHP 通用模板一套（访问续期+签到+三态证据判定）+ 少数站专用动作，首版内置 15~20 个常用站；Cloudflare 拦截/答题/验证码站一律报「需人工处理」并跳过 |
+
+> **2026-10-20 修正（决策 8 推翻）**：M-Team 的「触碰」**不能**借宿主的 API Key。
+> 实测同一个 Key 调 `/api/member/profile` 成功、调 `/api/member/updateLastBrowse`
+> 一律 `{"code":401,"Full authentication is required..."}`——那个接口只认网页会话 JWT。
+> 现在这一站按用户指定的 mtlogin 路线，用**账号密码 + TOTP** 在插件里登录（凭据存在插件
+> 设置、SecretStr + 宿主 SecretBox 加密），见 `03-plugin.md` 的「M-Team 自登录」一节。
 
 ## ⚑ 已拍板决定（替用户做的，实现时按此执行）
 
@@ -61,13 +67,19 @@ flexget_qbittorrent_mod（fqm）、pt-tools 的站点探测分类学。
 | 2 | `runtime = "process"`，只依赖 `movieclaw_sdk`，零 vendor/零第三方依赖 | GUIDE 硬性规范；宿主自带 `httpx`/`parsel`/`pydantic` 够用；签到判定用「HTTP+剥 script/hidden 后证据匹配」，不需要 playwright（包体精简诉求，预计几十 KB） |
 | 3 | 触发回路用 `SCHEDULED_TASKS` 注册表贡献定时任务（宿主已有完整调度器、UI 改周期、历史落库），不自写 while 循环 | 复用宿主调度器是本插件「复用主程序」诉求的直接体现；`plugin_detail.py` 已把贡献任务展示在插件详情页 |
 | 4 | 站点适配组织：`sites/` 目录每站一个 Python 适配函数注册进分发表，NexusPHP 站共用通用模板 | 社区三项目收敛的共识形态；比纯配置表（PTPP 式 148 站）可维护，比每站一个类轻 |
-| 5 | Cookie 失效不自动重登，发 `pt-keepalive.auth.expired` 事件报警，通知文案指引「站点设置→更新凭据」 | PT 站明确禁止脚本登录、封号风险最高；mtlogin 的账密+TOTP 自动重登路线整体放弃 |
+| 5 | NexusPHP 系 Cookie 失效不自动重登，发 `pt-keepalive.auth.expired` 事件报警，通知文案指引「站点设置→更新凭据」 | PT 站明确禁止脚本登录、封号风险最高（**仅限 NexusPHP 系**；M-Team 按决定 8 的修正走账密+TOTP 自登录） |
 | 6 | 通知复用宿主：`[[notifications]]` 声明两条（成功日报可关 + 失效/失败告警默认开），audience=admins | 宿主通知链路（偏好/IM 扇出/APNs）全现成，mtlogin 的 6 套推送渠道一行都不用重写 |
 | 7 | 结果三态建模照抄 MoviePilot `SiteResult{success, logged_in, completed}`：签到成功 ≠ 登录成功 ≠ 失败 | 「登录成功，签到未确认」不许冒充「签到成功」，这是社区踩出来的判据纪律 |
-| 8 | M-Team 触碰 = `POST /api/member/updateLastBrowse`（借宿主 x-api-key 会话）；成功判据兼容 2026-10 起的 `{code:"1",message:"FAIL"}` 反直觉组合 | mtlogin/MoviePilot 交叉验证的现成事实；判据写成可配置常量，站点改版只改常量 |
+| 8 | **（2026-10-20 推翻重写）** M-Team 触碰 = 插件用**账号密码 + TOTP** 登录 `POST /api/login` 拿 JWT，再 `POST /api/member/profile` → `POST /api/member/updateLastBrowse`；凭据存插件设置（SecretStr，宿主 SecretBox 加密），会话存插件数据（`secret=True`）跨轮复用 | 原方案「借宿主 x-api-key 调 updateLastBrowse」实测一律 401（该接口只认网页会话），会把站点每轮误判成凭据失效；mtlogin 路线已实测可用（NAS 容器网络直连，登录→profile→update 全通） |
 | 9 | 站点失败不熔断、不重试风暴：每轮只报「本轮结果」，连续 N 轮失败才升级报警（N=3） | 宿主 torrent_sync 已有熔断+红灯；插件重复熔断会双重报警；保活请求本身低频 |
-| 10 | 插件数据存 `PLUGIN_DATA`（scope=global）：每站 `{状态, 上次成功时间, 连续失败数}`；不落敏感数据 | 单值 JSON <64KB 足够；凭据永不进插件（走 SITE_PROXY） |
-| 11 | 首版站点清单从宿主 26 站 YAML 里选 NexusPHP 站 + mteam，全部经宿主会话执行 | 已配置站点才有会话；宿主目录就是站点全集，插件不再维护独立站点表 |
+| 10 | 插件数据存 `PLUGIN_DATA`（scope=global）：每站 `{状态, 上次成功时间, 连续失败数}`；M-Team 会话单独一个 `secret=True` 键 | 单值 JSON <64KB 足够；NexusPHP 凭据永不进插件（走 SITE_PROXY），M-Team 凭据进设置文件（加密） |
+| 11 | 首版站点清单从宿主 26 站 YAML 里选 NexusPHP 站 + mteam：NexusPHP 站经宿主会话执行，mteam 走插件自登录 | 已配置站点才有宿主会话；宿主目录就是站点全集，插件不再维护独立站点表 |
+
+> **M-Team 的三条判据细节**（都有单测，真站点 2026-10-20 实测）：
+> `{"code":"1","message":"FAIL"}` 是「站点认为无需刷新」（间隔过短/已被 mtlogin 刷过），
+> 记「登录在线」而不是成功，也不进失败统计；「簽名錯誤」= 前端签名密钥轮换，报失败并提示
+> 插件需更新，**不**置凭据失效；「請求過於頻繁」= 限流，同样不置失效。登录被拒（密码错、
+> 账号不存在、JWT 无效）才报警，且**不重试**——重试会继续扣账号的尝试次数。
 
 ## 文档导航
 
@@ -78,8 +90,8 @@ flexget_qbittorrent_mod（fqm）、pt-tools 的站点探测分类学。
 
 ## 范围外
 
-- 自动账密登录/TOTP（封号风险最高档，已明确放弃）；
 - Cloudflare challenge 过盾、答题签到、验证码 OCR（报「需人工」并跳过，不做浏览器渲染）；
-- CookieCloud 同步、浏览器扩展辅助（宿主凭据体系已是唯一真源，不引入第二真源）；
+- M-Team 的 Turnstile 强制人机验证 / JWT 手工透传模式（账号密码模式失效时只能等社区逆向）；
+- CookieCloud 同步、浏览器扩展辅助（宿主凭据体系是 NexusPHP 站的唯一真源，不引入第二真源）；
 - 「填一个网址安装」「插件商店」上架流程（按本仓库现状走 tag+Release+CI 生成索引）；
 - 修改宿主站点凭据（插件只读宿主状态，不做任何写操作）。
