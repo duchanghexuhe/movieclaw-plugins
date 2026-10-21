@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Android 11 起不声明就列不出别的应用（§6.1） -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
+    <application
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="false"
+        android:theme="@style/Theme.Home">
+        <!-- 只声明 HOME：再声明 LEANBACK_LAUNCHER，从别的桌面以普通任务打开它又会多起一份（§6.1，模拟器实测）。
+             不用 stateNotNeeded：靠「有没有保存的状态」区分开机和进程被杀后的恢复（§6.2） -->
+        <activity
+            android:name=".HomeActivity"
+            android:configChanges="keyboard|keyboardHidden|navigation|screenSize|screenLayout|smallestScreenSize|orientation|uiMode"
+            android:exported="true"
+            android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
