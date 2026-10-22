@@ -3,7 +3,8 @@
 站点请求分两条路：
 
 - NexusPHP 系站点经宿主 ``site.proxy.request`` 代发（借宿主已认证会话，插件接触不到
-  凭据），请求节奏由宿主每站限流兜底，这里逐站串行即可；
+  凭据），请求节奏由宿主每站限流兜底，这里逐站串行即可；宿主不跟随站点的 3xx，
+  同站的跳转由插件自己再发一次站内路径的请求（见 :meth:`KeepaliveRunner._proxy_following`）；
 - M-Team 用插件设置里保存的账号密码 + TOTP 自己登录（它的保活接口只认网页会话），
   会话（JWT + 设备指纹）存插件数据，下一轮复用。
 """
@@ -26,7 +27,16 @@ from pt_keepalive.events import (
 from pt_keepalive.mteam import SESSION_KEY, MTeamClient, Session
 from pt_keepalive.result import Outcome, SiteResult
 from pt_keepalive.settings import Settings, mteam_credentials
-from pt_keepalive.sites import SiteInfo, Step, adapter_for, step_response
+from pt_keepalive.sites import (
+    MAX_REDIRECTS,
+    SiteInfo,
+    Step,
+    adapter_for,
+    is_login_location,
+    redirect_location,
+    redirect_target,
+    step_response,
+)
 
 logger = logging.getLogger("movieclaw_plugins.pt_keepalive")
 
@@ -72,29 +82,34 @@ class KeepaliveRunner:
         宿主标「未验证通过」不影响插件保活。
         """
         rows = await self._call("site.list")
-        names = await self._catalog_names()
+        catalog = await self._catalog()
         sites: list[SiteInfo] = []
         for row in rows or []:
             if not isinstance(row, dict) or row.get("enabled") is False:
                 continue
             site_id = str(row.get("site_id"))
+            entry = catalog.get(site_id, {})
             sites.append(
                 SiteInfo(
                     site_id=site_id,
-                    display_name=str(row.get("display_name") or names.get(site_id) or site_id),
+                    display_name=str(
+                        row.get("display_name") or entry.get("display_name") or site_id
+                    ),
                     usable=bool(row.get("usable")),
                     auth_type=str(row.get("auth_type") or ""),
                     status=str(row.get("status") or ""),
                     last_error=str(row.get("last_error") or ""),
+                    base_url=entry.get("base_url", ""),
                 )
             )
         return sites
 
-    async def _catalog_names(self) -> dict[str, str]:
-        """site.catalog 的 site_id → 展示名。
+    async def _catalog(self) -> dict[str, dict[str, str]]:
+        """site.catalog 的 site_id → 展示名（``display_name``）与站点根地址（``base_url``）。
 
-        ``site.list`` 只回已配置站点、没有展示名；通知里用 ``hdsky`` 还是
-        ``HDSky`` 是给用户看的差别。拿不到目录就退回 site_id，不影响保活。
+        ``site.list`` 只回已配置站点、没有展示名也没有域名：展示名是给用户看的差别
+        （``hdsky`` 还是 ``HDSky``），域名用来判断 3xx 是不是同站跳转。拿不到目录就退回
+        site_id、且只跟相对路径的跳转，都不影响保活本身。
         """
         try:
             if self.ops is None:
@@ -102,26 +117,32 @@ class KeepaliveRunner:
             if not self.ops.allowed("site.catalog"):
                 return {}
             rows = await self.ops.call("site.catalog", {})
-        except Exception:  # 展示名是锦上添花，失败不拖垮整轮
+        except Exception:  # 展示名与域名都是锦上添花，失败不拖垮整轮
             logger.debug("读取站点目录失败，展示名退回 site_id", exc_info=True)
             return {}
         return {
-            str(row.get("site_id")): str(row.get("display_name") or "")
+            str(row.get("site_id")): {
+                "display_name": str(row.get("display_name") or ""),
+                "base_url": str(row.get("base_url") or ""),
+            }
             for row in rows or []
             if isinstance(row, dict)
         }
 
     # ------------------------------------------------------------------ 单站执行
 
-    async def _proxy_request(self, site: SiteInfo, step: Step) -> dict:
-        """经宿主代发一个请求；把宿主的 409 语义翻译成统一响应形态。"""
+    async def _proxy_request(self, site: SiteInfo, step: Step, path: str | None = None) -> dict:
+        """经宿主代发一个请求；把宿主的 409 语义翻译成统一响应形态。
+
+        ``path`` 缺省用步骤自己的，跟随跳转时换成跳转目标。
+        """
         plan = step.request
         try:
             return await self._call(
                 "site.proxy.request",
                 site_id=site.site_id,
                 method=plan.method,
-                path=plan.path,
+                path=path or plan.path,
                 base=plan.base,
                 headers=plan.headers,
                 body=plan.body,
@@ -135,6 +156,45 @@ class KeepaliveRunner:
                 return {"_auth_expired": True}
             logger.warning("站点 %s 代请求被宿主拒绝：%s", site.site_id, message)
             return {"_error": message}
+
+    async def _proxy_following(self, site: SiteInfo, step: Step) -> dict:
+        """代发请求；站点回 3xx 时自己决定跟不跟（宿主不跟随，原样回 ``Location``）。
+
+        - 跳到登录页 → ``_login_redirect``：会话失效，同「页面出现登录表单」；
+        - 同站 → 对那个站内路径再发一次 GET，最多跟 ``MAX_REDIRECTS`` 跳；
+        - 其余（跨主机、环、超限、没给目标、非 GET）→ ``_error`` 说明原因：不跟，
+          也不置失效——一个跳转不足以断定凭据失效。
+        """
+        plan = step.request
+        path = plan.path
+        # 按「从哪跳到哪」去重，不按页面去重：做完动作跳回同一页、或跳去设个 cookie 再跳回来，
+        # 都是正常流程（第二次到那一页拿到的才是真页面），同一个跳转出现第二次才是环
+        seen: set[tuple[str, str]] = set()
+        hops = 0
+        while True:
+            response = await self._proxy_request(site, step, path)
+            status = step_response(response).status_code
+            if not 300 <= status < 400:
+                return response
+            location = redirect_location(response)
+            if is_login_location(location):
+                return {"_login_redirect": True}
+            if plan.method != "GET":
+                return {"_error": f"站点对 {plan.method} 请求回了 HTTP {status} 跳转，不跟随"}
+            if not location:
+                return {"_error": f"站点回了 HTTP {status} 跳转，却没给目标地址"}
+            target, reason = redirect_target(location, path, site.base_url)
+            if target is None:
+                return {"_error": reason}
+            hop = ("/" + path.lstrip("/"), target)
+            if hop in seen:
+                return {"_error": "站点的跳转形成了环，已放弃"}
+            if hops == MAX_REDIRECTS:
+                return {"_error": f"站点连续跳转超过 {MAX_REDIRECTS} 次，已放弃"}
+            logger.debug("站点 %s 跳转 %s → %s", site.site_id, path, target)
+            hops += 1
+            seen.add(hop)
+            path = target
 
     async def run_site(self, site: SiteInfo) -> SiteResult:
         """跑单站：自己登录的站点走 M-Team 通道，其余按适配器逐步代请求。"""
@@ -167,7 +227,7 @@ class KeepaliveRunner:
 
         last: SiteResult | None = None
         for step in steps:
-            response = await self._proxy_request(site, step)
+            response = await self._proxy_following(site, step)
             if response.get("_skip"):
                 last = SiteResult(Outcome.SKIPPED, f"宿主判定站点当前不可访问：{response['_skip']}")
                 break
@@ -176,6 +236,11 @@ class KeepaliveRunner:
                     Outcome.FAILED,
                     "宿主判定站点凭据不可用（请更新凭据并重新验证）",
                     auth_expired=True,
+                )
+                break
+            if response.get("_login_redirect"):
+                last = SiteResult(
+                    Outcome.FAILED, "站点跳转到了登录页，凭据已失效", auth_expired=True
                 )
                 break
             if response.get("_error"):

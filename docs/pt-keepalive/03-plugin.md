@@ -1,6 +1,7 @@
 # 03 插件设计（plugins/pt-keepalive/）
 
-> 实现于 2026-10-18，2026-10-18 复查后修订；2026-10-20 M-Team 改为账密 + TOTP 自登录。
+> 实现于 2026-10-18，2026-10-18 复查后修订；2026-10-20 M-Team 改为账密 + TOTP 自登录；
+> 2026-10-22 宿主不再跟随站点 3xx，插件自己处理跳转（0.2.1）。
 > 以代码为准，本文记录结构与判据。
 
 ## 目录结构（本仓库）
@@ -18,17 +19,18 @@ plugins/pt-keepalive/
 │   ├── runner.py                # 保活轮：site.list → 逐站（代请求 / 自登录）→ 状态机 → 事件
 │   ├── mteam.py                 # M-Team：签名、TOTP、登录、刷新最后浏览时间
 │   ├── result.py                # 结果模型 + 页面证据判定纯函数（可单测）
-│   ├── sites/__init__.py        # 分派 + NexusPHP 模板（M-Team 不走这里）
+│   ├── sites/__init__.py        # 分派 + NexusPHP 模板 + 3xx Location 的判定（M-Team 不走这里）
 │   └── state.py                 # PLUGIN_DATA 状态机读写
 └── tests/
     ├── test_result.py           # 页面判定正反例 + 状态机
     ├── test_mteam.py            # 签名/TOTP/响应分类/登录流程（全假响应）
-    └── test_runner.py           # 适配器 + mock 宿主操作的整轮
+    ├── test_runner.py           # 适配器 + mock 宿主操作的整轮
+    └── test_redirects.py        # 3xx 跳转：登录页 / 同站跟随 / 跨主机、成环、超限的拒绝
 ```
 
 零 vendor、零 `[dependencies]`：只用宿主自带库（`parsel` 用于剥 script/hidden 后的证据匹配；
 `httpx` 用于 M-Team 的直连；`pydantic` 用于设置与事件载荷；`fastapi` 用于状态路由）。
-包体约 41 KB。
+包体约 56 KB（`check_plugin.py` 的口径，含 tests）。
 
 ## 清单（movieclaw-plugin.toml）要点
 
@@ -45,7 +47,8 @@ network = true
 ```
 
 - `site.list`：拿已配置且 `usable` 的站点。
-- `site.catalog`：`site.list` 不带展示名，通知文案用 catalog 的 `display_name`（拿不到退回 site_id）。
+- `site.catalog`：`site.list` 不带展示名也不带域名，通知文案用 catalog 的 `display_name`（拿不到退回
+  site_id），判断 3xx 是不是同站用 `base_url`（拿不到时只跟相对路径的跳转）。
 - `site.proxy.request`：NexusPHP 系站点发请求的唯一通道。
 - **`network = true`（2026-10-20 起）**：M-Team 的登录链路是插件自己直连 `api.m-team.io`，
   不再经宿主会话，所以这个权限现在是真需要的（此前「不声明」的理由已不成立）。
@@ -69,7 +72,7 @@ async def apply(ctx: Context) -> None:
 ```
 
 - 自检只要求 `site.list` + `site.proxy.request`（真正必需的）；`site.catalog` 缺了只是通知里
-  显示 site_id，不降级整个插件。
+  显示 site_id、且只跟相对路径的跳转，不降级整个插件。
 - 定时任务默认 CRON `17 9 * * *`；用户在「设置→定时任务」改，配置模型里不放间隔。
 - 30 秒上限内完成登记；保活轮本体是任务处理器，跑多久都行。
 
@@ -122,6 +125,24 @@ class Step:
   签到页判定用 `login_confirm=False`（该页通常没有导航栏，不要求登出链接）。
 
 任一步判 `FAILED` / `NEED_HUMAN` 即停止后续步骤。
+
+### 站点回 3xx
+
+宿主的 `site.proxy.request` 不跟随跳转（见 `02-host-site-proxy.md`），所以每一步的请求都经
+`runner._proxy_following`，不直接调 `_proxy_request`：
+
+1. 响应不是 3xx → 原样交给步骤的 `judge`；
+2. `Location` 的路径带 `login` → `{"_login_redirect": True}`，`run_site` 译成
+   `FAILED` + `auth_expired`（同「页面出现登录表单」）；
+3. 否则只有 GET 才跟：`redirect_target` 把 `Location` 解析成站内路径（相对路径按当前请求解析；
+   绝对 URL 要求主机等于 `SiteInfo.base_url` 的主机，只取路径加查询串），再发一次，
+   最多 `MAX_REDIRECTS = 3` 跳；
+4. 跨主机、成环（同一个「从哪跳到哪」第二次出现；到过同一页不算，先处理后跳回同一页、
+   跳去设 cookie 再跳回来都是正常流程）、超限、没有 `Location`、非 GET →
+   `{"_error": 原因}`，`run_site` 记 `FAILED` 并带上原因，**不**置 `auth_expired`。
+
+哨兵键 `_skip` / `_auth_expired` / `_login_redirect` / `_error` 都是 `_proxy_request` 与
+`_proxy_following` 回给 `run_site` 的统一响应形态，不会出现在宿主的真实响应里。
 
 ## M-Team 自登录（不走代请求）
 

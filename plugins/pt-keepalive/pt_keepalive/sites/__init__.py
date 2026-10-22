@@ -14,6 +14,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
+from urllib.parse import urljoin, urlsplit
 
 from pt_keepalive.result import (
     Outcome,
@@ -21,10 +22,14 @@ from pt_keepalive.result import (
     judge_nexusphp_page,
 )
 
+#: 宿主不跟随站点的 3xx（认证头不能经站点的开放重定向带到外站），插件自己跟同站的
+#: 跳转，最多跟这么多跳
+MAX_REDIRECTS = 3
+
 
 @dataclass
 class SiteInfo:
-    """site.list 里一个站点的最少信息（宿主返回脱敏，无凭据字段）。"""
+    """站点的最少信息：``site.list``（宿主返回脱敏，无凭据字段）加 ``site.catalog`` 的域名。"""
 
     site_id: str
     display_name: str
@@ -34,6 +39,9 @@ class SiteInfo:
     status: str = ""
     #: 宿主给的最近验证失败原因（没失败为空）。只用于把「为什么没保活」讲给用户听
     last_error: str = ""
+    #: 站点根地址（``site.catalog`` 的 ``base_url``，拿不到为空）。只用来判断 3xx 的目标
+    #: 是不是同站——请求本身只给站内路径，域名由宿主按站点注册的地址拼
+    base_url: str = ""
 
 
 @dataclass
@@ -79,6 +87,61 @@ def step_response(response: dict[str, Any]) -> StepResponse:
         status_code=status,
         text=str(response.get("text") or ""),
     )
+
+
+# ---------------------------------------------------------------------------
+# 3xx 跳转：宿主原样回 ``Location``，由插件决定跟不跟
+# ---------------------------------------------------------------------------
+
+
+def redirect_location(response: dict[str, Any]) -> str:
+    """代请求响应里的 ``Location``（头名大小写不定；没有就是空串）。"""
+    headers = response.get("headers")
+    if not isinstance(headers, dict):
+        return ""
+    return next(
+        (str(value).strip() for key, value in headers.items() if str(key).lower() == "location"),
+        "",
+    )
+
+
+def is_login_location(location: str) -> bool:
+    """跳转目标是不是登录页：路径里带 ``login``（``login.php`` / ``takelogin.php`` / ``/login``）。
+
+    只看路径、不看查询串（``?returnto=...`` 里带什么都不算），也不看主机：NexusPHP 的
+    ``Location`` 可能是相对路径也可能是按站点地址拼的绝对 URL，而跳去登录页本身就是会话
+    失效的证据，用不着先确认同站。
+    """
+    try:
+        return "login" in urlsplit(location).path.lower()
+    except ValueError:
+        return False
+
+
+def redirect_target(location: str, current: str, base_url: str = "") -> tuple[str | None, str]:
+    """``Location`` → ``(再发一次用的站内路径, "")``；不能跟时 ``(None, 原因)``。
+
+    宿主只收站内相对路径（域名由它按站点注册的地址拼），所以绝对 URL 只有主机与站点
+    一致才跟、且只取路径加查询串；拿不到站点域名（``base_url`` 为空）时绝对 URL 一律
+    不跟。``current`` 是刚发出去的那个请求的站内路径，相对的 ``Location`` 按它解析。
+    """
+    try:
+        target = urlsplit(urljoin("/" + current.lstrip("/"), location))
+        site_host = urlsplit(base_url).hostname or ""
+    except ValueError:
+        return None, "站点给出的跳转地址无法解析，已忽略"
+    if target.scheme not in ("", "http", "https"):
+        return None, f"站点跳转到不支持的地址（{target.scheme}:），已忽略"
+    if target.netloc:
+        host = target.hostname or ""
+        if not site_host:
+            return None, f"站点跳转到 {host}，但没拿到站点域名、无法确认是同站，已忽略"
+        if host != site_host:
+            return None, f"站点跳转到外部地址（{host}），已忽略"
+    path = target.path
+    if not path.startswith("/"):  # urljoin 遇到顶格的 .. 会把开头的 / 一起吃掉
+        path = "/" + path
+    return path + (f"?{target.query}" if target.query else ""), ""
 
 
 # ---------------------------------------------------------------------------
