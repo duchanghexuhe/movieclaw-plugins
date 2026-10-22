@@ -95,6 +95,9 @@
   | 成环：`/index.php` → `/a` → `/index.php` → `/a` | `failed`「代请求失败：站点的跳转形成了环，已放弃」 | `/index.php`、`/a`、`/index.php` |
   | 4 跳：`/index.php` → `/c1` → `/c2` → `/c3` → `/c4` | `failed`「代请求失败：站点连续跳转超过 3 次，已放弃」 | `/index.php`、`/c1`、`/c2`、`/c3`；`/c4` 没请求 |
 
+- **没有 `site.catalog` 权限时的降级**（把清单和 `@plugin` 里的权限去掉这一项装一份，宿主日志「获得 2 个宿主操作授权」）：
+  展示名退回 `fakept`；绝对 URL 的同站跳转被拒，说明写着「站点跳转到 127.0.0.1，但没拿到站点域名、无法确认是同站，已忽略」；
+  相对路径的跳转照跟，`signin_ok`。
 - **前后对比与宿主契约探测**（先在 Windows 宿主上做的，插件当时是进程内的本地插件，同一假站点）：
   会话失效的假站点上直接调 `site.proxy.request`，对 `index.php` 回 `status_code: 302`、`headers.location`
   是登录页、正文为空，传 `timeout_seconds` 被接受。同一个「会话失效」场景：改动前的插件 → `failed`
