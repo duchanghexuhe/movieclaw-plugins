@@ -1,0 +1,57 @@
+# Issue forms can only attach labels written into the template. plugin-feedback
+# is that label. plugin:<id> depends on the form's plugin field, so it is
+# applied after the issue opens, and only when the id is already in index.json.
+
+name: plugin feedback
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  label:
+    name: label
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Add plugin-feedback and plugin:<id>
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          if ! labels_text="$(python3 scripts/label_plugin_feedback.py --event "$GITHUB_EVENT_PATH")"; then
+            exit 1
+          fi
+          if [ -z "$labels_text" ]; then
+            echo "not a plugin-feedback issue"
+            exit 0
+          fi
+          mapfile -t labels <<< "$labels_text"
+          args=()
+          for label in "${labels[@]}"; do
+            case "$label" in
+              plugin-feedback)
+                color=1F4B99
+                desc="插件反馈"
+                ;;
+              plugin:[a-z0-9-]*)
+                color=57606A
+                desc="插件 ${label#plugin:}"
+                ;;
+              *)
+                echo "refusing label: $label" >&2
+                exit 1
+                ;;
+            esac
+            gh label create "$label" --color "$color" --description "$desc" || true
+            args+=(--add-label "$label")
+          done
+          gh issue edit "$ISSUE_NUMBER" "${args[@]}"

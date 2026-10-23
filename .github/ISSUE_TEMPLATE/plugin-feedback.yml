@@ -1,0 +1,54 @@
+# Field ids are the query parameters MovieClaw prefills:
+# https://github.com/movieclaw/movieclaw-plugins/issues/new?template=plugin-feedback.yml&plugin=<id>&plugin_version=<ver>&movieclaw_version=<ver>
+# GitHub only prefills input and textarea. Do not rename these ids, and do not turn them into dropdowns.
+name: 插件反馈
+description: 报告某个插件的问题，或留下建议
+title: 插件反馈
+labels:
+  - plugin-feedback
+body:
+  - type: markdown
+    attributes:
+      value: |
+        说说这个插件在 MovieClaw 里的情况。从插件市场进来时，插件和版本会填好。
+  - type: input
+    id: plugin
+    attributes:
+      label: 插件 id
+      description: 插件的 id，例如 cloud-115
+      placeholder: cloud-115
+    validations:
+      required: true
+  - type: input
+    id: plugin_version
+    attributes:
+      label: 插件版本
+      description: 出问题的那一版
+      placeholder: 0.1.0
+    validations:
+      required: false
+  - type: input
+    id: movieclaw_version
+    attributes:
+      label: MovieClaw 版本
+      placeholder: 0.42.0
+    validations:
+      required: false
+  - type: textarea
+    id: description
+    attributes:
+      label: 描述
+      description: 发生了什么，你期望怎样
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 步骤
+      description: 怎样复现。提建议可以不填
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: false

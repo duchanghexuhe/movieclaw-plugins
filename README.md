@@ -4,7 +4,7 @@
 
 随应用自带的通道、下载器和观看动态，权威副本仍在 [MovieClaw](https://github.com/movieclaw/MovieClaw)，并随应用打包。`example/` 里有一份对照复制，不进 `plugins/`，不进索引，也不发版。
 
-应用内商店还没做。现在的服务器只接受上传的 `.mcplugin`，不接受「填一个网址就安装」。本仓库先把包和索引准备好。
+MovieClaw 的「设置 → 插件 → 插件市场」读这份索引：列出插件和版本，安装时服务器先验索引签名，再按索引里的 sha256 核对下载的包，然后进入和上传一样的批准界面。
 
 ## 目录
 
@@ -12,11 +12,12 @@
 ├── README.md
 ├── index.json                 索引源文件，给人审、给 PR 看 diff
 ├── index.schema.json          索引 schema，版本 1
-├── plugins/                   正式插件。现在是空的
+├── plugins/                   正式插件，每个进索引、单独发版
 │   └── <id>/
 │       ├── movieclaw-plugin.toml
-│       ├── store.json         作者、主页、许可证、图标。不能写进清单
-│       ├── CHANGELOG.md
+│       ├── store.json         市场里的简介、分类、作者、图标、撤回。不能写进清单
+│       ├── icon.svg           可选
+│       ├── CHANGELOG.md       每版一节「## <版本>」：Release 正文与市场的更新说明
 │       └── <entry>.py
 ├── example/
 │   ├── GUIDE.md               给插件作者的说明
@@ -25,11 +26,13 @@
 │   └── <id>/                  从 MovieClaw 复制的参考插件，不发版
 └── scripts/
     ├── pack.py                时间戳钉死的打包，打印 sha256
-    ├── generate_index.py      从清单、store.json 和发布记录生成索引
+    ├── generate_index.py      从各版本的 tag、store.json 和发布记录生成索引
+    ├── release_notes.py       截出某一版的 CHANGELOG
+    ├── upload_catalog.sh      上传索引、签名和图片到 catalog Release
     └── sync_examples.py       从 MovieClaw 重新复制 example/ 里的参考插件
 ```
 
-`.github/workflows/ci.yml` 在 PR 上校验。`release.yml` 在 tag 上发版。
+`.github/workflows/ci.yml` 在 PR 上校验。`release.yml` 在 tag 上发版。`catalog.yml` 在 `main` 的 `index.json` 变了时（只改元数据）签名并上传索引，并每天刷新各插件的下载次数。插件反馈用 [`.github/ISSUE_TEMPLATE/plugin-feedback.yml`](.github/ISSUE_TEMPLATE/plugin-feedback.yml)。
 
 ## 参考插件
 
@@ -64,8 +67,8 @@ python3 scripts/sync_examples.py 779712c4d8d2c2c320021ab0e31cde95821dd493
 先读 [example/GUIDE.md](example/GUIDE.md)。`example/hello-note/` 是一份能工作的 `runtime = "process"` 插件，不在索引里。同目录里从 MovieClaw 同步来的参考插件不是这个模板。
 
 1. 把 `example/hello-note/` 复制到 `plugins/<id>/`，改掉 id、标题、版本和代码。不要从参考插件开副本。id 是小写字母开头，只用小写字母、数字和连字符，3～40 位，不能有点。
-2. 清单只写服务器认识的字段。作者、主页、许可证、图标写在同目录的 `store.json`。
-3. 开 PR。CI 用钉死的 MovieClaw 版本（v0.37.0，提交 `e229717c43b2d48986f8f51c19b86348a527cb5a`）跑 `Manifest` / `check_compat`，并跑该目录自己的测试。改了哪个 `plugins/<id>/` 就查哪个。`example/` 有改动时会再查 `hello-note`，并按 `example/UPSTREAM.json` 再查参考副本（只跑 `check_plugin.py`；参考副本没有带上不能单独跑的测试）。
+2. 清单只写服务器认识的字段。简介、分类、作者、许可证、图标写在同目录的 `store.json`，字段见 [GUIDE](example/GUIDE.md#storejson-和在本仓库发版)。`CHANGELOG.md` 里写好这一版的一节。
+3. 开 PR。CI 用钉死的 MovieClaw 版本（v0.42.0，提交 `bd325adde24e5e035878d3fb668cd0b004c96760`）跑 `Manifest` / `check_compat`，并跑该目录自己的测试。改了哪个 `plugins/<id>/` 就查哪个。`example/` 有改动时会再查 `hello-note`，并按 `example/UPSTREAM.json` 再查参考副本（只跑 `check_plugin.py`；参考副本没有带上不能单独跑的测试）。
 4. 合并之后打 tag：`<id>-v<版本>`，例如 `watch-presence-v1.0.0`。tag 里的版本必须和清单 `version` 逐字相同。
 
 ## 版本、tag 和 Release
@@ -82,17 +85,26 @@ tag 用最后一个 `-v` 加数字版本拆开，所以 id 里的连字符不会
 
 | 什么 | 在哪 |
 |---|---|
-| 给人看的源文件 | 本仓库 `main` 上的 [`index.json`](index.json)，格式见 [`index.schema.json`](index.schema.json)（schema **1**） |
+| 给人看的源文件 | 本仓库 `main` 上的 [`index.json`](index.json)，格式见 [`index.schema.json`](index.schema.json)（schema **2**） |
 | 每个插件的包 | 该插件自己的 Release 附件，地址跟着 tag 不变 |
-| 给应用拉的那一份 | 长期存在的 Release，tag 固定叫 `catalog`，反复覆盖 `index.json` |
+| 给应用拉的那一份 | 长期存在的 Release，tag 固定叫 `catalog`，反复覆盖 `index.json` 与 `index.json.sig`；图标等图片按内容命名也放在这里 |
 
 应用应下载这一个地址，不要按插件去打 GitHub Releases API：
 
 `https://github.com/movieclaw/movieclaw-plugins/releases/download/catalog/index.json`
 
-发版时 CI 按当时的 `plugins/*/movieclaw-plugin.toml`、`store.json` 和已有发布记录重生索引，再覆盖到 `catalog`。配了 Actions secret `RELEASE_SIGNING_KEY`（Ed25519 私钥 PEM，生成方式与 MovieClaw 的 `scripts/gen-release-signing-key.sh` 相同）时，同时上传 `index.json.sig`：对 `index.json` 的原始字节做 Ed25519，签名是 base64 再加一个换行，和主仓库 `manifest.json.sig` 一样。可选 secret `RELEASE_SIGNING_KEY_ID` 写入索引的 `key_id`，缺省是 `catalog-1`。公钥不写进索引，以后跟 MovieClaw 版本走。没配密钥时只发布 sha256，索引里 `signed` 为 false。
+索引里每个版本的权限、`sdk`、`[requires]`、依赖锁文件、README 和更新说明，都从那一版的 tag 读出；简介、分类、图标、撤回从 `main` 的 `store.json` 读；下载地址、sha256、大小来自发布记录。发版时 `release.yml` 重生索引；只改元数据时在 PR 里运行 `python3 scripts/generate_index.py --update`，合并后 `catalog.yml` 上传。
 
-`main` 上的 `index.json` 在发版成功后由同一条工作流提交，方便看 diff。应用以内的下载地址仍是 `catalog` 附件。
+每个插件还有两个可选字段，旧版应用会忽略：
+
+- `feedback_url`：反馈该打开的地址。`store.json` 写了 `issues_url` 就用它；没写、但 `homepage` 是别的 GitHub 仓库根地址时，用那个仓库的 `issues/new`；否则是本仓库的反馈表单，只预填插件 id，不含版本：`https://github.com/movieclaw/movieclaw-plugins/issues/new?template=plugin-feedback.yml&plugin=<id>`。应用自己补 `plugin_version` 和 `movieclaw_version`（地址里已有 `?` 就接 `&`，否则接 `?`）。
+- `downloads`：该插件已发布版本的 `.mcplugin` 附件在 GitHub Release 上的 `download_count` 之和。`release.yml` 和 `catalog.yml` 用工作流令牌向 GitHub API 查询后写入签名索引；`catalog.yml` 每天跑一次，所以不用发版数字也会更新。`main` 上的 `index.json` 不跟这个数字，`--check` 沿用文件里已有的整数。
+
+反馈表单会打上 `plugin-feedback`。issue 打开后，工作流在插件 id 已进入索引时再打 `plugin:<id>`。
+
+签名：发布索引必须配置 Actions secret `RELEASE_SIGNING_KEY`（Ed25519 私钥 PEM），没有它工作流直接失败，因为 MovieClaw 不加载未签名的索引。`index.json.sig` 对 `index.json` 的原始字节做 Ed25519，签名是 base64 再加一个换行，和主仓库 `manifest.json.sig` 一样。可选 secret `RELEASE_SIGNING_KEY_ID` 写入索引的 `key_id`，缺省是 `catalog-1`。公钥不写进索引，随 MovieClaw 版本发布（`movieclaw_api/services/plugin_market.py`）。换密钥时先在 MovieClaw 里加上新公钥并发版，再换 secret。
+
+schema 2 之内只加字段，读的一方忽略不认识的字段。要做不兼容的改动，就换一个文件名发布，旧版应用继续读旧文件。
 
 ## 许可证
 
@@ -100,4 +112,4 @@ tag 用最后一个 `-v` 加数字版本拆开，所以 id 里的连字符不会
 
 ## English
 
-Official MovieClaw plugin source and releases. One GitHub Release per plugin, tag `<id>-v<version>`, asset `<id>-<version>.mcplugin`. Every release is published with `--latest=false`. The machine-readable catalog is schema 1: `index.json` on `main`, and the copy clients should fetch at `.../releases/download/catalog/index.json` (optional `index.json.sig`, Ed25519 over the raw file, same construction as MovieClaw app-update manifests). Authoring notes are in `example/GUIDE.md`. `plugins/` is empty on purpose. Reference copies of MovieClaw's bundled plugins and `watch-presence` live under `example/<id>/` (commit recorded in `example/UPSTREAM.json`); they are not indexed or released. `example/hello-note` is the template to copy. The repository license is not chosen yet; see the TODO above.
+Official MovieClaw plugin source and releases. One GitHub Release per plugin, tag `<id>-v<version>`, asset `<id>-<version>.mcplugin`. Every release is published with `--latest=false`. The machine-readable catalog is schema 2: `index.json` on `main`, and the copy clients fetch at `.../releases/download/catalog/index.json` with `index.json.sig` (Ed25519 over the raw file, same construction as MovieClaw app-update manifests). Each version records what it declared at its own tag; store metadata (summary, category, icon, yanks) comes from `store.json` on main. Optional `feedback_url` and `downloads` may appear on each plugin; older app versions ignore them. `downloads` is refreshed on the signed catalog daily. Authoring notes are in `example/GUIDE.md`. Reference copies of MovieClaw's bundled plugins and `watch-presence` live under `example/<id>/` (commit recorded in `example/UPSTREAM.json`); they are not indexed or released. `example/hello-note` is the template to copy. The repository license is not chosen yet; see the TODO above.

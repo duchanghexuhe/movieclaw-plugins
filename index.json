@@ -1,40 +1,231 @@
 {
-  "schema": 1,
-  "generated_at": "2026-10-18T03:27:04Z",
-  "signed": false,
-  "key_id": null,
+  "schema": 2,
+  "generated_at": "2026-10-23T03:41:04Z",
+  "signed": true,
+  "key_id": "catalog-1",
+  "repository": "https://github.com/movieclaw/movieclaw-plugins",
   "plugins": [
     {
       "id": "cloud-115",
       "name": "115 网盘",
+      "summary": "把 115 网盘接进媒体库：网盘里已有的片子直接看，新片自动上传、本地自动腾空。",
       "description": "把 115 网盘接进媒体库：扫码或浏览器 Cookie 登录，纳管已有文件夹、秒传与分片续传上传、取直链播放",
-      "author": "MovieClaw",
+      "category": "storage",
+      "author": {
+        "name": "MovieClaw",
+        "url": "https://github.com/movieclaw"
+      },
       "homepage": "https://github.com/movieclaw/movieclaw-plugins/tree/main/plugins/cloud-115",
+      "repository": "https://github.com/movieclaw/movieclaw-plugins/tree/main/plugins/cloud-115",
       "license": "GPL-3.0-or-later",
       "origin": "official",
-      "icon": null,
-      "screenshots": [],
-      "runtime": "process",
-      "sdk": "^1.0",
-      "app": null,
-      "permissions": {
-        "operations": [],
-        "paths": [],
-        "network": false,
-        "callbacks": [],
-        "events": []
+      "icon": {
+        "url": "https://github.com/movieclaw/movieclaw-plugins/releases/download/catalog/cloud-115-icon-d5961310a09fa524.svg",
+        "sha256": "d5961310a09fa5242f92d64457a8a93d5561b36c0471df77f948c3423e31c00b",
+        "size": 519
       },
-      "platforms": [
-        "any"
-      ],
-      "latest": "0.1.0-beta.1",
+      "screenshots": [],
+      "deprecated": null,
+      "feedback_url": "https://github.com/movieclaw/movieclaw-plugins/issues/new?template=plugin-feedback.yml&plugin=cloud-115",
+      "latest": "0.1.0-beta.2",
+      "latest_stable": null,
       "versions": [
         {
+          "version": "0.1.0-beta.2",
+          "prerelease": true,
+          "released_at": "2026-10-19T10:30:37Z",
+          "yanked": null,
+          "notes": "- 请求改走 MovieClaw 的网络出口：主程序按请求限速，整树列举翻的每一页都排队领名额、计入每日预算，\n  大文件夹纳管不再连发几十页把 115 打到限流（#907，需要带按请求限速的 MovieClaw）；「网络与代理」里给本插件配的代理也生效了。\n",
+          "changelog_url": "https://github.com/movieclaw/movieclaw-plugins/releases/tag/cloud-115-v0.1.0-beta.2",
+          "source_url": "https://github.com/movieclaw/movieclaw-plugins/tree/cloud-115-v0.1.0-beta.2/plugins/cloud-115",
+          "readme": {
+            "url": "https://raw.githubusercontent.com/movieclaw/movieclaw-plugins/cloud-115-v0.1.0-beta.2/plugins/cloud-115/README.md",
+            "sha256": "af782bde5017498d4c6bba5a13ba46e4eea40e429cc775ce30e1ebcabd1d6dd0",
+            "size": 1842
+          },
+          "runtime": "process",
+          "sdk": "^1.0",
+          "requires": {
+            "drive-backends": "^1.4"
+          },
+          "platforms": [
+            "any"
+          ],
+          "permissions": {
+            "operations": [],
+            "paths": [],
+            "network": true,
+            "callbacks": [],
+            "events": []
+          },
+          "web": false,
+          "dependencies": {
+            "lock": {
+              "url": "https://raw.githubusercontent.com/movieclaw/movieclaw-plugins/cloud-115-v0.1.0-beta.2/plugins/cloud-115/requirements.lock",
+              "sha256": "d8bbd424ed1f368edb1d971cdde22ab8d3a7ce673366a65fdba59558bb070f19",
+              "size": 20924
+            },
+            "packages": [
+              {
+                "name": "ecdsa",
+                "version": "0.19.2",
+                "native": false
+              },
+              {
+                "name": "lz4",
+                "version": "4.4.5",
+                "native": true
+              },
+              {
+                "name": "p115cipher",
+                "version": "0.0.6",
+                "native": false
+              },
+              {
+                "name": "p115pickcode",
+                "version": "0.0.5.4",
+                "native": false
+              },
+              {
+                "name": "pycryptodome",
+                "version": "4.0.1",
+                "native": true
+              },
+              {
+                "name": "python-asynctools",
+                "version": "0.2.2",
+                "native": false
+              },
+              {
+                "name": "python-decotools",
+                "version": "0.0.4",
+                "native": false
+              },
+              {
+                "name": "python-filewrap",
+                "version": "0.3.1.1",
+                "native": false
+              },
+              {
+                "name": "python-property",
+                "version": "0.0.3",
+                "native": false
+              },
+              {
+                "name": "python-undefined",
+                "version": "0.0.4",
+                "native": false
+              },
+              {
+                "name": "six",
+                "version": "1.17.0",
+                "native": false
+              }
+            ]
+          },
+          "artifacts": [
+            {
+              "platform": "any",
+              "filename": "cloud-115-0.1.0-beta.2.mcplugin",
+              "url": "https://github.com/movieclaw/movieclaw-plugins/releases/download/cloud-115-v0.1.0-beta.2/cloud-115-0.1.0-beta.2.mcplugin",
+              "sha256": "3f2f6f4d863ee2d049a0faa6577c86bc4fe5a466cc65f91c09e925f4dfb6cf13",
+              "size": 46375
+            }
+          ]
+        },
+        {
           "version": "0.1.0-beta.1",
+          "prerelease": true,
           "released_at": "2026-10-18T03:27:04Z",
+          "yanked": null,
+          "notes": "- 首次内测。扫码登录（可选登录端）与浏览器 Cookie 导入；账号容量；目录选择、整树列举与操作动态（纳管）；\n  文件核验、按播放器 User-Agent 取直链；秒传（含区间校验）与 OSS 分片续传上传；删除进 115 回收站。\n- 依赖 `p115cipher`（115 的请求加密）与 `p115pickcode`（提取码换文件 id），均为 MIT 许可，安装时经管理员批准下载。\n",
           "changelog_url": "https://github.com/movieclaw/movieclaw-plugins/releases/tag/cloud-115-v0.1.0-beta.1",
-          "min_app": null,
-          "max_app": null,
+          "source_url": "https://github.com/movieclaw/movieclaw-plugins/tree/cloud-115-v0.1.0-beta.1/plugins/cloud-115",
+          "readme": {
+            "url": "https://raw.githubusercontent.com/movieclaw/movieclaw-plugins/cloud-115-v0.1.0-beta.1/plugins/cloud-115/README.md",
+            "sha256": "af782bde5017498d4c6bba5a13ba46e4eea40e429cc775ce30e1ebcabd1d6dd0",
+            "size": 1842
+          },
+          "runtime": "process",
+          "sdk": "^1.0",
+          "requires": {
+            "drive-backends": "^1.4"
+          },
+          "platforms": [
+            "any"
+          ],
+          "permissions": {
+            "operations": [],
+            "paths": [],
+            "network": false,
+            "callbacks": [],
+            "events": []
+          },
+          "web": false,
+          "dependencies": {
+            "lock": {
+              "url": "https://raw.githubusercontent.com/movieclaw/movieclaw-plugins/cloud-115-v0.1.0-beta.1/plugins/cloud-115/requirements.lock",
+              "sha256": "d8bbd424ed1f368edb1d971cdde22ab8d3a7ce673366a65fdba59558bb070f19",
+              "size": 20924
+            },
+            "packages": [
+              {
+                "name": "ecdsa",
+                "version": "0.19.2",
+                "native": false
+              },
+              {
+                "name": "lz4",
+                "version": "4.4.5",
+                "native": true
+              },
+              {
+                "name": "p115cipher",
+                "version": "0.0.6",
+                "native": false
+              },
+              {
+                "name": "p115pickcode",
+                "version": "0.0.5.4",
+                "native": false
+              },
+              {
+                "name": "pycryptodome",
+                "version": "4.0.1",
+                "native": true
+              },
+              {
+                "name": "python-asynctools",
+                "version": "0.2.2",
+                "native": false
+              },
+              {
+                "name": "python-decotools",
+                "version": "0.0.4",
+                "native": false
+              },
+              {
+                "name": "python-filewrap",
+                "version": "0.3.1.1",
+                "native": false
+              },
+              {
+                "name": "python-property",
+                "version": "0.0.3",
+                "native": false
+              },
+              {
+                "name": "python-undefined",
+                "version": "0.0.4",
+                "native": false
+              },
+              {
+                "name": "six",
+                "version": "1.17.0",
+                "native": false
+              }
+            ]
+          },
           "artifacts": [
             {
               "platform": "any",
@@ -42,6 +233,540 @@
               "url": "https://github.com/movieclaw/movieclaw-plugins/releases/download/cloud-115-v0.1.0-beta.1/cloud-115-0.1.0-beta.1.mcplugin",
               "sha256": "88958b608374e8481f389bb11d113419db7e42588d81958d8cfead10e9eda5bb",
               "size": 45196
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "movie-voice",
+      "name": "寻映",
+      "summary": "Siri 语音找电影和剧集，纠正片名、核对库存，确认后观看或订阅。",
+      "description": "寻映配合「找电影」快捷指令使用，插件页面生成并复制 SEARCH_URL；Siri 找电影：海报、片名和年份确认；已有影片发送可打开官方 App 影片详情的原生通知，缺片由用户确认后沿用默认规则订阅。网页使用当前登录账号；通知仅发给管理员账号。",
+      "category": "tools",
+      "author": {
+        "name": "sexyfeifan",
+        "url": "https://github.com/sexyfeifan"
+      },
+      "homepage": "https://github.com/movieclaw/movieclaw-plugins/tree/main/plugins/movie-voice",
+      "repository": "https://github.com/movieclaw/movieclaw-plugins/tree/main/plugins/movie-voice",
+      "license": "见仓库许可证",
+      "origin": "official",
+      "icon": {
+        "url": "https://github.com/movieclaw/movieclaw-plugins/releases/download/catalog/movie-voice-icon-05473f3799072024.svg",
+        "sha256": "05473f37990720240062f2ce93645756704c7980c3204634f58319af5cca33e9",
+        "size": 354
+      },
+      "screenshots": [],
+      "deprecated": null,
+      "feedback_url": "https://github.com/movieclaw/movieclaw-plugins/issues/new?template=plugin-feedback.yml&plugin=movie-voice",
+      "latest": "0.1.0",
+      "latest_stable": "0.1.0",
+      "versions": [
+        {
+          "version": "0.1.0",
+          "prerelease": false,
+          "released_at": "2026-10-23T03:34:02Z",
+          "yanked": null,
+          "notes": "- 插件展示名为“寻映”；配套快捷指令仍为“找电影”，内部标识保留 `movie-voice`。\n\n- 通过 Apple 快捷指令语音或输入搜索电影与电视剧，显示海报、片名和年份候选。\n- 支持片名纠错、同音、库存别名匹配，以及重说、手动输入和补充线索。\n- 确认影片后核对库存：已有影片发送官方 App 观看通知，缺片按宿主默认规则订阅并搜索下载。\n- 插件页面生成并复制 SEARCH_URL，直接下载不带服务器信息的通用分享版；下载按钮旁提供已验证的 iCloud 一键添加入口，保留文件下载备用。\n- 可私密分发管理员在 Mac 预先签名的已配置个人版；地址或授权变化后停止分发旧文件。\n- 网页沿用 MovieClaw 当前服务端的黑白灰、小圆角和按钮样式，适配手机。\n- 将可审阅的快捷指令源码、分享版构建和个人版签名维护工具一并随源码发布，无需作者本机配置。\n- 能力链接响应禁止缓存，撤销授权接口拒绝跨站请求。\n- 修复类别过滤导致的漏搜：网页与快捷指令同时展示电影、电视剧及库内命中，按类型与来源编号核对和观看；剧集缺片订阅要求明确季数后再确认，不默认全季或自动续订。\n- 同步用户在 Mac 设置的两版青色图标：个人版波形、分享版慢动作；更新签名下载文件及未配置 iCloud 副本，流程动作保持不变。\n- 完成 Mac 原生在库剧集识别与中文季号确认验收，测试均取消最终操作；说明插件内下载入口、个人版签名准备及系统确认添加的步骤。\n\n个人版不是 Linux 服务端即时签名：每台服务器需先由自己的 Mac 准备一次。需要宿主已有的元数据来源、订阅线路和下载器配置；资源是否命中仍由宿主规则决定。\n",
+          "changelog_url": "https://github.com/movieclaw/movieclaw-plugins/releases/tag/movie-voice-v0.1.0",
+          "source_url": "https://github.com/movieclaw/movieclaw-plugins/tree/movie-voice-v0.1.0/plugins/movie-voice",
+          "readme": {
+            "url": "https://raw.githubusercontent.com/movieclaw/movieclaw-plugins/movie-voice-v0.1.0/plugins/movie-voice/README.md",
+            "sha256": "d8ece9baec0cad8ae9f73707749ed93d15a26e574d3ecda5721839fcb5141fc3",
+            "size": 8890
+          },
+          "runtime": "process",
+          "sdk": "^1.0",
+          "requires": {
+            "agent": "^1.0",
+            "host-ops": "^1.0",
+            "plugin-routes": "^1.0",
+            "plugin-events": "^1.0",
+            "plugin-data": "^1.0"
+          },
+          "platforms": [
+            "any"
+          ],
+          "permissions": {
+            "operations": [
+              "agent:none",
+              "library.items.get",
+              "search.library",
+              "search.titles",
+              "discover.get-title-details",
+              "subscriptions.create"
+            ],
+            "paths": [],
+            "network": true,
+            "callbacks": [],
+            "events": []
+          },
+          "web": true,
+          "dependencies": null,
+          "artifacts": [
+            {
+              "platform": "any",
+              "filename": "movie-voice-0.1.0.mcplugin",
+              "url": "https://github.com/movieclaw/movieclaw-plugins/releases/download/movie-voice-v0.1.0/movie-voice-0.1.0.mcplugin",
+              "sha256": "b11f38567716a038339fab820f24070a97b772d3487554de304302fd3f042ad9",
+              "size": 75395
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "notifyhub",
+      "name": "企业微信直推",
+      "summary": "企业微信自建应用直推，支持入库、播放、上传文件名和中文模板。",
+      "description": "直连企业微信自建应用，支持海报图文、文本卡片和 Jinja2 中文模板，补充评分、类型、演员及简介。",
+      "category": "messaging",
+      "author": {
+        "name": "Migflyway",
+        "url": "https://github.com/Migflyway"
+      },
+      "homepage": "https://github.com/movieclaw/movieclaw-plugins/tree/main/plugins/notifyhub",
+      "repository": "https://github.com/movieclaw/movieclaw-plugins/tree/main/plugins/notifyhub",
+      "license": "见仓库许可证",
+      "origin": "official",
+      "icon": null,
+      "screenshots": [],
+      "deprecated": null,
+      "feedback_url": "https://github.com/movieclaw/movieclaw-plugins/issues/new?template=plugin-feedback.yml&plugin=notifyhub",
+      "latest": "2.3.0",
+      "latest_stable": "2.3.0",
+      "versions": [
+        {
+          "version": "2.3.0",
+          "prerelease": false,
+          "released_at": "2026-10-23T03:36:07Z",
+          "yanked": null,
+          "notes": "- 企业微信自建应用直推，支持图文、文本卡片和中文 Jinja2 模板。\n- 订阅、下载、整理入库、媒体库新增、洗版、播放及系统通道告警。\n- 新增媒体默认合并 5 秒后处理，持续入账最多等待 15 秒开始处理；首次扫描和大批量事件保留汇总兜底。\n- 上传任务完成时显示确认成功的文件名及上传/秒传统计；部分失败单独标明。\n- 去重记录分片存储，每个值最多 32 KiB，修复超过 64 KB 后的重复投递。\n- 电影隐藏季集，电视剧合并新增集数；图片统一使用 MovieClaw 访问地址。\n- 保留 notifyhub ID，供已有用户继续升级并沿用设置。\n",
+          "changelog_url": "https://github.com/movieclaw/movieclaw-plugins/releases/tag/notifyhub-v2.3.0",
+          "source_url": "https://github.com/movieclaw/movieclaw-plugins/tree/notifyhub-v2.3.0/plugins/notifyhub",
+          "readme": {
+            "url": "https://raw.githubusercontent.com/movieclaw/movieclaw-plugins/notifyhub-v2.3.0/plugins/notifyhub/README.md",
+            "sha256": "eeb24a4521e22018dcb07e3b3c41cfa522b9ae6a9ff65a609fdb847cf28ed27a",
+            "size": 5064
+          },
+          "runtime": "process",
+          "sdk": "^1.0",
+          "requires": {
+            "plugin-data": "^1.0",
+            "kernel/durable-events": "^1.0",
+            "plugin-callbacks": "^1.0",
+            "plugin-routes": "^1.0",
+            "im-channels": "^1.0",
+            "host-ops": "^1.0",
+            "subscription.created": "^2.0",
+            "subscription.download_started": "^1.0",
+            "subscription.fulfilled": "^2.0",
+            "subscription.upgraded": "^1.0",
+            "download.completed": "^2.0",
+            "library.ingest.completed": "^1.0",
+            "library.items.arrived": "^1.0",
+            "library.files.added": "^2.0"
+          },
+          "platforms": [
+            "any"
+          ],
+          "permissions": {
+            "operations": [
+              "discover.get-title-details",
+              "library.items.get",
+              "subscriptions.get",
+              "members.show",
+              "jobs.list",
+              "jobs.events",
+              "library.list"
+            ],
+            "paths": [],
+            "network": true,
+            "callbacks": [
+              "playback"
+            ],
+            "events": []
+          },
+          "web": false,
+          "dependencies": null,
+          "artifacts": [
+            {
+              "platform": "any",
+              "filename": "notifyhub-2.3.0.mcplugin",
+              "url": "https://github.com/movieclaw/movieclaw-plugins/releases/download/notifyhub-v2.3.0/notifyhub-2.3.0.mcplugin",
+              "sha256": "d254f9f84d10c6f52e2bb539c8df5953b875426e14e2119cccff4fed936bd3fc",
+              "size": 190360
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "openlist-direct-link",
+      "name": "OpenList 直链",
+      "summary": "挂载路径的 strm 借 OpenList 换出网盘直链，播放器 302 直连网盘，视频流量不经服务器。",
+      "description": "strm 指向 CloudDrive2 / rclone 挂载里的文件时，借 OpenList 换出网盘直链，播放器直接从网盘取，视频流量不经过服务器。",
+      "category": "storage",
+      "author": {
+        "name": "MovieClaw",
+        "url": "https://github.com/movieclaw"
+      },
+      "homepage": "https://github.com/movieclaw/movieclaw-plugins/tree/main/plugins/openlist-direct-link",
+      "repository": "https://github.com/movieclaw/movieclaw-plugins/tree/main/plugins/openlist-direct-link",
+      "license": "见仓库许可证",
+      "origin": "official",
+      "icon": null,
+      "screenshots": [],
+      "deprecated": null,
+      "feedback_url": "https://github.com/movieclaw/movieclaw-plugins/issues/new?template=plugin-feedback.yml&plugin=openlist-direct-link",
+      "latest": "0.1.0",
+      "latest_stable": "0.1.0",
+      "versions": [
+        {
+          "version": "0.1.0",
+          "prerelease": false,
+          "released_at": "2026-10-22T04:09:54Z",
+          "yanked": null,
+          "notes": "- 首次发布。strm 指向网盘挂载里的文件时，按路径规则换成 OpenList 路径，交出 OpenList 的签名下载地址；MovieClaw 带着播放器的 User-Agent 跟到网盘 CDN，再把播放器 302 过去。\n",
+          "changelog_url": "https://github.com/movieclaw/movieclaw-plugins/releases/tag/openlist-direct-link-v0.1.0",
+          "source_url": "https://github.com/movieclaw/movieclaw-plugins/tree/openlist-direct-link-v0.1.0/plugins/openlist-direct-link",
+          "readme": {
+            "url": "https://raw.githubusercontent.com/movieclaw/movieclaw-plugins/openlist-direct-link-v0.1.0/plugins/openlist-direct-link/README.md",
+            "sha256": "e28d0419be418bf92ecdff7a2ce3129eac31b4fcefd17398f972cc331d9373a6",
+            "size": 1395
+          },
+          "runtime": "process",
+          "sdk": "^1.0",
+          "requires": {
+            "playback.strm.direct-link": "^1.0"
+          },
+          "platforms": [
+            "any"
+          ],
+          "permissions": {
+            "operations": [],
+            "paths": [],
+            "network": true,
+            "callbacks": [],
+            "events": []
+          },
+          "web": false,
+          "dependencies": null,
+          "artifacts": [
+            {
+              "platform": "any",
+              "filename": "openlist-direct-link-0.1.0.mcplugin",
+              "url": "https://github.com/movieclaw/movieclaw-plugins/releases/download/openlist-direct-link-v0.1.0/openlist-direct-link-0.1.0.mcplugin",
+              "sha256": "6ae34a4645581a82f87689f35dc02d007fb930b592ed7f540e3d6ec66cf1f7ea",
+              "size": 6752
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "platform-discovery",
+      "name": "映屿",
+      "summary": "按账号同步片味的海报墙、媒体库录像厅和平台发现；支持库存播放入口、选季订阅、完整全屏屏保与有限海报缓存。",
+      "description": "按 MovieClaw 账号同步口味测试、稍后看、不感兴趣、已看过、喜欢与避重历史；官方进程内插件模式，自动合并旧浏览器档案。国家／年代／题材多选、筛选方案、探索程度、安全撤销与浏览历史均按账号同步。海报墙支持尺寸自适应、首屏优先与有限预加载，以及悬停快捷标记与手机操作入口，默认首页，全屏无缝拼贴、重测片味、跨重启恢复。详情内直接订阅：剧集可选季，明确确认后由当前登录账号创建，沿用现有订阅策略与入库路由。保留 Netflix 官网周榜和自动更新、平台热榜、随心看剧。入口 /api/v1/plugins/platform-discovery/panel。",
+      "category": "tools",
+      "author": {
+        "name": "sexyfeifan",
+        "url": null
+      },
+      "homepage": "https://github.com/movieclaw/movieclaw-plugins/tree/main/plugins/platform-discovery",
+      "repository": "https://github.com/movieclaw/movieclaw-plugins/tree/main/plugins/platform-discovery",
+      "license": "GPL-3.0-only",
+      "origin": "official",
+      "icon": {
+        "url": "https://github.com/movieclaw/movieclaw-plugins/releases/download/catalog/platform-discovery-icon-526beedfa9b38991.svg",
+        "sha256": "526beedfa9b38991f0216cd54fe6b8ea2f64b8ee3f0805644d9964df1ebae530",
+        "size": 258
+      },
+      "screenshots": [],
+      "deprecated": null,
+      "feedback_url": "https://github.com/movieclaw/movieclaw-plugins/issues/new?template=plugin-feedback.yml&plugin=platform-discovery",
+      "latest": "0.11.0",
+      "latest_stable": "0.11.0",
+      "versions": [
+        {
+          "version": "0.11.0",
+          "prerelease": false,
+          "released_at": "2026-10-23T03:32:01Z",
+          "yanked": null,
+          "notes": "平台放映厅更名为映屿：主程序只声明一个映屿入口，四个板块统一在插件页面内切换，桌面恢复完整页内导航、手机保留紧凑切换条。内部 ID、路由、账号偏好与缓存目录不变，兼容原有板块收藏链接。\n",
+          "changelog_url": "https://github.com/movieclaw/movieclaw-plugins/releases/tag/platform-discovery-v0.11.0",
+          "source_url": "https://github.com/movieclaw/movieclaw-plugins/tree/platform-discovery-v0.11.0/plugins/platform-discovery",
+          "readme": {
+            "url": "https://raw.githubusercontent.com/movieclaw/movieclaw-plugins/platform-discovery-v0.11.0/plugins/platform-discovery/README.md",
+            "sha256": "aa7ef20a7e14135f18dd11d5fd6dcc4b3164518d4af23001f7a8b2f9fbd53206",
+            "size": 12464
+          },
+          "runtime": "inline",
+          "sdk": "^1.0",
+          "requires": {
+            "host-ops": "^1.0",
+            "plugin-routes": "^1.0",
+            "plugin-data": "^1.0"
+          },
+          "platforms": [
+            "any"
+          ],
+          "permissions": {
+            "operations": [
+              "discover.get-title-details",
+              "discover.filter-titles"
+            ],
+            "paths": [],
+            "network": true,
+            "callbacks": [],
+            "events": []
+          },
+          "web": true,
+          "dependencies": null,
+          "artifacts": [
+            {
+              "platform": "any",
+              "filename": "platform-discovery-0.11.0.mcplugin",
+              "url": "https://github.com/movieclaw/movieclaw-plugins/releases/download/platform-discovery-v0.11.0/platform-discovery-0.11.0.mcplugin",
+              "sha256": "888f754774dd23fd6106a02ee95cf477a0f34d2ce8fe9a0589bf509937b5b37f",
+              "size": 353091
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "seed-scheduler",
+      "name": "种子做种定时清理",
+      "summary": "给下载器里的种子设做种时长，到点自动删任务；H&R 与订阅中的先留着。",
+      "description": "给下载器里的种子设做种时长：到点自动删任务（可连数据文件一起删），不依赖 MovieClaw 入库——只把它当下载器用也行。站点 H&R 要求、还在下载中、正在播放、订阅正在用的种子会先留着；被挡住的会提醒你处理。",
+      "category": "downloader",
+      "author": {
+        "name": "Kev1nT",
+        "url": "https://github.com/Kev1nT"
+      },
+      "homepage": "https://github.com/movieclaw/movieclaw-plugins/tree/main/plugins/seed-scheduler",
+      "repository": "https://github.com/movieclaw/movieclaw-plugins/tree/main/plugins/seed-scheduler",
+      "license": "MIT",
+      "origin": "official",
+      "icon": null,
+      "screenshots": [],
+      "deprecated": null,
+      "feedback_url": "https://github.com/movieclaw/movieclaw-plugins/issues/new?template=plugin-feedback.yml&plugin=seed-scheduler",
+      "latest": "1.1.0",
+      "latest_stable": "1.1.0",
+      "versions": [
+        {
+          "version": "1.1.0",
+          "prerelease": false,
+          "released_at": "2026-10-23T03:34:59Z",
+          "yanked": null,
+          "notes": "审阅意见落地：文档里写的几条安全线原本大多没有真正生效，这版让它们真的起作用。\n\n安全线\n\n- 媒体库保护真正生效。原来靠 `brief[\"file_ids\"]` 找库文件，可直连 qBittorrent 的结果和宿主\n  `dl.tasks` 里都没有这个字段，判断永远拿到空集、也就永远放行。现在监听\n  `library.ingest.completed`（自带 `info_hashes` 与 `files`）自己建入库台账：\n  - 「还供着别的条目 / 没识别的文件」按台账里各文件的 `media_item_id` 判断；\n  - 「订阅还在等这些季集」再问一次 `library.items.relations`；\n  - 台账按入库时间留最近 400 条，控制在 `PLUGIN_DATA` 单值 64 KB 以内。\n- 去掉缺必填参数 `library_id` 的 `library.items.list` 调用（它也不在申请的权限里）。\n  条目详情只用来给通知卡片取标题与海报，取不到就当没有，不参与任何删除判断。\n- H&R 改从下载器标签识别（`hit&run` / `H&R` / `考核` 等）。原来读 `dl.tasks` 的\n  `subscriptions[]`，那里没有这个字段，恒为 False。\n- `removal_blocker` 真的和 `hr_min_hours` 比较了：做够考核时长就不再拦，没做够才拦。\n- 做种时长不再把 `added_on` 算进去。已完成的种子只认累计做种秒数与完成时刻，\n  `added_on` 只在两者都缺失时兜底——否则「下了三天才下完、刚做种就被判成做了三天」。\n- 「正在播放」按片长推进保护窗口，兜底 4 小时（原来固定 30 分钟，两小时的片看到后半段\n  就出了窗口）。\n\n默认值与容量\n\n- `dry_run` 默认改为开、`delete_files` 默认改为关、`handle_missing_files` 默认改为关。\n  删除不可逆，先演练几轮再放开。\n- 每轮删除上限 `MAX_PER_RUN` 由 200 降到 20，避免一次改动在几秒内删光上千个任务。\n- `seen` 上限 1000 条、`history` 50 条。原来 20000 / 300 条会超过 64 KB 上限，\n  写不进去之后所有种子被当成「刚见到」重新计时。\n- 处理记录改到删种与发通知之后再写，不会再出现「删了、没通知、状态没落盘」。\n\n多下载器\n\n- 设置的 qBittorrent 地址不再套在 `dl.list` 的每一台下载器上：按主机名 + 端口比对，\n  对不上就退回任务中心的口径。直连拿到的种子带上 `downloader_id`，删除时用同一个 id。\n\n其它\n\n- `should_remind` 的单位修正：`overdue_days` 是天，原来当小时算，兜底时间只有设定值的 1/24。\n- 提醒不再要求「只清理媒体库里已有这份文件的种子」也打开；只要到期被挡住就提醒。\n- 清单补上 `network = true`（直连 qBittorrent WebAPI），去掉没用到的 `library.scan.start`。\n- 不再导入 `movieclaw_sdk.events._base.Frozen`，改用 `BaseModel + ConfigDict(frozen=True)`。\n- 补纯函数单测：`removal_blocker`、`library_verdict`、`should_remind`、`has_hr_tag`、\n  `open_until`、台账与 URL 归一化。\n",
+          "changelog_url": "https://github.com/movieclaw/movieclaw-plugins/releases/tag/seed-scheduler-v1.1.0",
+          "source_url": "https://github.com/movieclaw/movieclaw-plugins/tree/seed-scheduler-v1.1.0/plugins/seed-scheduler",
+          "readme": {
+            "url": "https://raw.githubusercontent.com/movieclaw/movieclaw-plugins/seed-scheduler-v1.1.0/plugins/seed-scheduler/README.md",
+            "sha256": "8dc087b4247e8838f9e9682fe512fa02cf171cce586127384db552c069440d2f",
+            "size": 6121
+          },
+          "runtime": "process",
+          "sdk": "^1.0",
+          "requires": {
+            "host-ops": "^1.0",
+            "plugin-data": "^1.0",
+            "plugin-events": "^1.0",
+            "job-handlers": "^1.1",
+            "plugin-jobs": "^1.0",
+            "scheduled-tasks": "^1.0",
+            "download.completed": "^2.0",
+            "library.ingest.completed": "^1.0",
+            "library.item.viewed": "^2.0",
+            "playback.started": "^2.0"
+          },
+          "platforms": [
+            "any"
+          ],
+          "permissions": {
+            "operations": [
+              "dl.list",
+              "dl.tasks",
+              "dl.file-sources.list",
+              "library.list",
+              "library.items.get",
+              "library.items.relations",
+              "dl.torrent.delete"
+            ],
+            "paths": [],
+            "network": true,
+            "callbacks": [],
+            "events": [
+              "playback.*",
+              "library.item.viewed"
+            ]
+          },
+          "web": false,
+          "dependencies": null,
+          "artifacts": [
+            {
+              "platform": "any",
+              "filename": "seed-scheduler-1.1.0.mcplugin",
+              "url": "https://github.com/movieclaw/movieclaw-plugins/releases/download/seed-scheduler-v1.1.0/seed-scheduler-1.1.0.mcplugin",
+              "sha256": "134a4587d1d6a291ae776575462961cc4ec8e87a270004542076f74e5c0a4437",
+              "size": 36357
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "trakt-sync",
+      "name": "Trakt 自动追踪",
+      "summary": "将 MovieClaw 播放活动同步到各成员自己的 Trakt 账号",
+      "description": "将 MovieClaw 播放活动自动同步到各成员绑定的 Trakt 账号",
+      "category": "tools",
+      "author": {
+        "name": "o1xhack",
+        "url": "https://github.com/o1xhack"
+      },
+      "homepage": "https://github.com/o1xhack/movieclaw-trakt",
+      "repository": "https://github.com/movieclaw/movieclaw-plugins/tree/main/plugins/trakt-sync",
+      "license": "MIT",
+      "origin": "official",
+      "icon": null,
+      "screenshots": [],
+      "deprecated": null,
+      "feedback_url": "https://github.com/o1xhack/movieclaw-trakt/issues/new",
+      "latest": "0.2.3",
+      "latest_stable": "0.2.3",
+      "versions": [
+        {
+          "version": "0.2.3",
+          "prerelease": false,
+          "released_at": "2026-10-23T02:32:16Z",
+          "yanked": null,
+          "notes": "- Prevent a completion evicted by capacity trimming after metadata revalidation from being sent without a persisted recovery record.\n- Remove delivered or failed jobs by identity, so capacity trimming cannot silently discard the following completion or pop an empty queue.\n- Add regressions for near-limit two-job and single-job queues, plus remote-success/process-exit recovery while capacity trimming removes a heartbeat. Capacity evictions retain the existing explicit loss count.\n",
+          "changelog_url": "https://github.com/movieclaw/movieclaw-plugins/releases/tag/trakt-sync-v0.2.3",
+          "source_url": "https://github.com/movieclaw/movieclaw-plugins/tree/trakt-sync-v0.2.3/plugins/trakt-sync",
+          "readme": {
+            "url": "https://raw.githubusercontent.com/movieclaw/movieclaw-plugins/trakt-sync-v0.2.3/plugins/trakt-sync/README.md",
+            "sha256": "71140d2337b7bd3bc8094de83b72e969d41211836480ca95189a6037e7c044e1",
+            "size": 5185
+          },
+          "runtime": "process",
+          "sdk": "^1.0",
+          "requires": {
+            "playback.started": "^2.0",
+            "playback.progress": "^1.0",
+            "playback.stopped": "^1.0",
+            "playback.completed": "^1.0",
+            "host-ops": "^1.0",
+            "plugin-data": "^1.0",
+            "plugin-routes": "^1.0",
+            "plugin-health": "^1.0",
+            "kernel/durable-events": "^1.0"
+          },
+          "platforms": [
+            "any"
+          ],
+          "permissions": {
+            "operations": [
+              "library.list",
+              "library.items.get"
+            ],
+            "paths": [],
+            "network": true,
+            "callbacks": [],
+            "events": [
+              "playback.started",
+              "playback.progress",
+              "playback.stopped",
+              "playback.completed"
+            ]
+          },
+          "web": true,
+          "dependencies": null,
+          "artifacts": [
+            {
+              "platform": "any",
+              "filename": "trakt-sync-0.2.3.mcplugin",
+              "url": "https://github.com/movieclaw/movieclaw-plugins/releases/download/trakt-sync-v0.2.3/trakt-sync-0.2.3.mcplugin",
+              "sha256": "90db9b49b7eb245140937fa7063ca9a0052908fdbbd323763d9be8651eee47ab",
+              "size": 68808
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "watch-friends",
+      "name": "映迹",
+      "summary": "私人观影足迹、高清片单、多图推荐、本人跨平台已看与续播同步，以及独立授权的互联影友。",
+      "description": "观看足迹、私人片单、影视推荐、已看与续播同步、互联影友。",
+      "category": "tools",
+      "author": {
+        "name": "sexyfeifan",
+        "url": null
+      },
+      "homepage": "https://github.com/movieclaw/movieclaw-plugins/tree/main/plugins/watch-friends",
+      "repository": "https://github.com/movieclaw/movieclaw-plugins/tree/main/plugins/watch-friends",
+      "license": "GPL-3.0-only",
+      "origin": "official",
+      "icon": {
+        "url": "https://github.com/movieclaw/movieclaw-plugins/releases/download/catalog/watch-friends-icon-b21a535dccc013d7.svg",
+        "sha256": "b21a535dccc013d7822b4981a7d884532af98233ea4e8712b202219c57da0e97",
+        "size": 290
+      },
+      "screenshots": [],
+      "deprecated": null,
+      "feedback_url": "https://github.com/movieclaw/movieclaw-plugins/issues/new?template=plugin-feedback.yml&plugin=watch-friends",
+      "latest": "0.1.0",
+      "latest_stable": "0.1.0",
+      "versions": [
+        {
+          "version": "0.1.0",
+          "prerelease": false,
+          "released_at": "2026-10-23T03:33:08Z",
+          "yanked": null,
+          "notes": "首次提交到 MovieClaw 插件仓库，安装 ID 为 `watch-friends`，显示名称为「映迹」。\n\n- 原生 Web 页面、服务器账号头像与个人资料、跨来源观看足迹和电影／电视剧／单集统计。\n- 私人片单与喜欢列表；高清可选片单封面，最多九张图片的推荐、评分、点赞、评论及举报。\n- 按媒体库排除公开内容，可分别隐藏私人足迹和排除统计；公开预览与好友授权独立。\n- 本人 Emby/Plex 导入，三平台已看对齐预览后确认同步；默认关闭的后台已看和续播同步，支持任务进度、暂停、停止与重试。\n- 管理员双向批准的互联服务器、来源签名与短期名片、最多两次可信转发；独立默认关闭的可选公共发现，不内置公共入口。\n- 统一宿主主题、图标、弹窗、折叠同步卡片和图片预览。插件只保存自己的数据，无需附加容器或端口。\n\n跨服务器互联网联调尚待第二台真实服务器；本地多实例验证不等同于真实多服验收。续播为轮询式同步，不保证所有客户端即时无缝衔接。\n",
+          "changelog_url": "https://github.com/movieclaw/movieclaw-plugins/releases/tag/watch-friends-v0.1.0",
+          "source_url": "https://github.com/movieclaw/movieclaw-plugins/tree/watch-friends-v0.1.0/plugins/watch-friends",
+          "readme": {
+            "url": "https://raw.githubusercontent.com/movieclaw/movieclaw-plugins/watch-friends-v0.1.0/plugins/watch-friends/README.md",
+            "sha256": "bda46bde0904c8d61002ccf26187e4dd64266f70afdea031f082ea80390407ce",
+            "size": 42298
+          },
+          "runtime": "inline",
+          "sdk": "^1.0",
+          "requires": {
+            "host-ops": "^1.0",
+            "plugin-routes": "^1.0",
+            "plugin-files": "^1.0"
+          },
+          "platforms": [
+            "any"
+          ],
+          "permissions": {
+            "operations": [
+              "members.list",
+              "playback.history",
+              "search.library"
+            ],
+            "paths": [],
+            "network": true,
+            "callbacks": [],
+            "events": []
+          },
+          "web": true,
+          "dependencies": null,
+          "artifacts": [
+            {
+              "platform": "any",
+              "filename": "watch-friends-0.1.0.mcplugin",
+              "url": "https://github.com/movieclaw/movieclaw-plugins/releases/download/watch-friends-v0.1.0/watch-friends-0.1.0.mcplugin",
+              "sha256": "7e1af31455f37b65bbb2216ad83e5e41a3bd9c3736b503363ee294eaa7fb69dd",
+              "size": 702339
             }
           ]
         }

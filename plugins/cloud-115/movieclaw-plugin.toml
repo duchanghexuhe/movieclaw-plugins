@@ -1,7 +1,7 @@
 [plugin]
 id = "cloud-115"
 title = "115 网盘"
-version = "0.1.0-beta.1"
+version = "0.1.0-beta.2"
 entry = "cloud_115"
 runtime = "process"
 sdk = "^1.0"
@@ -11,6 +11,7 @@ description = "把 115 网盘接进媒体库：扫码或浏览器 Cookie 登录�
 "drive-backends" = "^1.4"
 
 [permissions]
+network = true
 operations = []
 
 [dependencies]

@@ -44,10 +44,10 @@ MovieClaw 仓库的 `docs/design/plugin-phase3.md` 有几处和现在的代码�
 - 设计里可申请的内存上限（`RLIMIT_AS`）没有清单字段，也没有实现。进程外运行器实际做的是：打开文件数收到 1024、禁止 core dump、`nice(10)`；宿主是 root 时把插件降到 uid 65534（可用 `MOVIECLAW_PLUGIN_UID` 改）。
 - `network = true` 只是声明，安装页会显示，运行时不拦流量。
 - 插件不能自带 HTML 设置页。`watch-presence` 目录里的 `settings.html` 宿主不加载。设置是 pydantic 模型，主程序收成 JSON Schema 子集再画表单。
-- 兼容性看的是 SDK 和契约，不是应用版本。`movieclaw_sdk.SDK_VERSION` 现在是 `1.0`，应用版本（v0.37.0）是另一套数。索引里的 `min_app` / `max_app` 在服务器开始检查之前只是说明。
-- 第三方插件包没有签名。zip 校验只防路径和体积。本仓库的索引可以带 sha256 和可选的 Ed25519 签名，那是索引自己的事，服务器安装时还不会拿它来对。
+- 兼容性看的是 SDK 和契约，不是应用版本。`movieclaw_sdk.SDK_VERSION` 现在是 `1.0`，应用版本是另一套数。市场按每个版本的 `sdk` 和 `[requires]` 判断能不能装，所以 `[requires]` 要写全。
+- 插件包本身没有签名。市场安装时，服务器先验索引的 Ed25519 签名，再按索引里的 sha256 和字节数核对下载的包；上传文件安装不经过这一步。
 
-第三阶段明确不做插件市场、远程仓库和「填网址安装」。今天的唯一入口仍是上传文件。
+入口有两个：「设置 → 插件 → 插件市场」从本仓库的索引安装；「已安装」里仍可上传 `.mcplugin`。没有「填网址安装」。
 
 ## 插件是什么
 
@@ -135,7 +135,7 @@ open = "plugin"                # plugin | media
 | 值 | 含义 |
 |---|---|
 | `process` | 默认，也是本仓库示例用的。独立进程，`python -s -m movieclaw_sdk.runner`。主进程不导入插件代码。 |
-| `inline` | 在主进程里导入，和主程序同一套权限。批准时必须单独确认（`mclaw` 加 `--allow-inline`）。商店以后也不该静默装这种。除非用户明确要求，不要用。 |
+| `inline` | 在主进程里导入，和主程序同一套权限。批准时必须单独确认（`mclaw` 加 `--allow-inline`）。市场同样要单独确认。除非用户明确要求，不要用。 |
 | `exec` | 非 Python。不写 `entry`，写 `command`（包内相对路径，如 `bin/bridge`）和 `platforms`（如 `linux/amd64`）。包里要有这个文件，服务器平台必须在列表里，否则装不上。 |
 
 `exec` 的 `platforms` 是允许列表，不是「按架构挑二进制」。一个包只有一个 `command`。列表写了 amd64 和 arm64、里面却是一个 amd64 二进制，arm64 机器会装上然后跑不起来。多架构就发多个附件，每个附件的清单只写一个平台，索引用 `artifacts[].platform` 区分。纯 Python、没有原生扩展时，索引记 `any`。
@@ -195,7 +195,7 @@ ctx.on(LIBRARY_INGEST_COMPLETED, on_imported, id="after-import", durable=True)
 
 实时订阅是 `ctx.on(EVENT, fn)`，不加 `durable`：发完即忘。插件不在、积压满了就丢。适合「现在可以做点什么」，该做的事要能从数据库补回来。高频事件（播放进度、打开详情）只能实时订阅。
 
-决策钩子也是 `ctx.on`。钩子里只做判断，不产生副作用（不发请求、不写数据、不调宿主操作）。副作用放进可靠事件或宿主操作。监听器抛错、超时或返回类型不对时按「这个监听器不存在」处理。
+决策钩子也是 `ctx.on`。钩子里只做判断，不产生副作用（不写数据、不调会改东西的宿主操作、不往外发通知）：决策可能被别的插件或规则推翻。只读查询可以，例如 `playback.strm.direct-link` 里向网盘问直链，但要快：单个监听器 2 秒超时，超时按没回答处理。副作用放进可靠事件或宿主操作。监听器抛错、超时或返回类型不对时按「这个监听器不存在」处理。
 
 敏感事件必须写在 `[permissions] events`。版本号以你对着的那一版 `contracts.py` 或 `movieclaw_sdk.surface` 为准，不要照抄旧笔记。`library.ingest.completed` 在 v0.37.0 是 `^1.0`；不少播放和删除事件已经是 `^2.0`。
 
@@ -253,7 +253,7 @@ issued = await callbacks.issue(ctx, "push")
 
 ## 第三方依赖
 
-v0.37.0 的服务器只认 `vendor/`。从 v0.39.0 之后的下一个服务器版本起，`runtime = "process"` 的插件可以声明 PyPI 依赖，由服务器在用户批准时下载安装（`inline` / `exec` 插件不行）：
+v0.37.0 的服务器只认 `vendor/`。从服务器 v0.40.0 起，`runtime = "process"` 的插件可以声明 PyPI 依赖，由服务器在用户批准时下载安装（`inline` / `exec` 插件不行）：
 
 1. 插件目录放 `requirements.in`，每行一个直接依赖，例如 `p115cipher[full]`。
 2. 清单加：
@@ -298,11 +298,12 @@ python3 scripts/pack.py example/hello-note --output /tmp/hello-note-0.1.0.mcplug
 
 ## 上传、批准、安装
 
-商店做出来以后，下载仍要走现在这条链路，不要假设有「从 URL 安装」。
+市场安装是服务器按索引下载、校验，再放进下面这条链路的「待批准」，批准界面和上传的一样。市场只下载索引里登记的地址。
 
 | 动作 | 命令 |
 |---|---|
 | 开发安装 | `mclaw plugin dev <目录> --once` |
+| 从市场下载（进待批准） | `mclaw app plugins market install <id> --version <版本>` |
 | 打包 | `mclaw plugin pack <目录>`，或本仓库的 `scripts/pack.py` |
 | 上传 | `mclaw app plugins packages upload --file <包>` |
 | 批准 | `mclaw app plugins packages approve <id> --version <版本> --operations-json '[...]' --paths-json '[...]' --yes` |
@@ -319,43 +320,65 @@ python3 scripts/pack.py example/hello-note --output /tmp/hello-note-0.1.0.mcplug
 
 开发循环会把版本改成 `<版本>-dev.<时间戳>` 再上传，因为服务器不接受把同一个版本字符串再装一次。`mclaw plugin dev` 不要拿去对不是开发用的服务器反复装。正式发布不要用 `-dev` 后缀。
 
-权限没有变大（没有新的操作和路径，也不是新申请 `inline`、也不是新申请给成员发通知）时，将来的商店可以代用户按清单原样批准。权限变大，或 `runtime = inline`，必须打开现在的批准界面。默认不要静默自动升级。
+市场不静默安装或升级：每次都打开批准界面，升级时新增的权限标「新增」，锁文件没变就不再问依赖。
 
 ## 升级、回滚，以及同一个版本不能再传
 
-服务器不要求新版本号比当前更大，所以用更旧的包盖住当前版是允许的。它拒绝的是**同一个版本字符串**：已经装着 `1.2.0` 时，不能再上传 `1.2.0` 覆盖。撤包重发必须升 `version`，或者用户先卸载再装。正式商店不能靠 `-dev.<时间戳>` 绕过。
+服务器不要求新版本号比当前更大，所以用更旧的包盖住当前版是允许的。它拒绝的是**同一个版本字符串**：已经装着 `1.2.0` 时，不能再上传 `1.2.0` 覆盖。撤包重发必须升 `version`，或者用户先卸载再装。发错的版本在 `store.json` 的 `yanked` 里撤回，见下文。
 
 激活失败过的版本记在 `bad` 里，用来提醒，不禁止以后再装。用户再次上传并批准时，会把它从 `bad` 里去掉。
 
-回滚是当前版和上一版对调，不用重新下载。更早的目录已经被删掉。要回到更早的包，就再装那次 Release 的文件（版本号可以变小，只要不等于当前装着的那一个字符串）。
+回滚是当前版和上一版对调，不用重新下载。更早的目录已经被删掉。要回到更早的包，在市场详情的「版本」里装那一版（版本号可以变小，只要不等于当前装着的那一个字符串）。
 
-升级不迁数据，见上文。索引和商店都不应承诺「升级会把旧键变成新键」，只能承诺宿主不删。
+升级不迁数据，见上文。市场不承诺「升级会把旧键变成新键」，只承诺宿主不删。
 
 同 id 的插件包会顶掉随应用携带的内置插件。卸掉之后内置版本回来。
 
 ## store.json 和在本仓库发版
 
-`store.json` 的字段：
+`store.json` 是市场显示、而服务器清单放不下的东西：
 
 | 字段 | 必填 | 说明 |
 |---|---|---|
 | `author` | 是 | 显示名 |
-| `homepage` | 是 | 绝对 URL |
+| `author_url` | 否 | 作者主页（https），市场里点作者名跳过去 |
 | `license` | 是 | 这个插件的许可证。仓库许可证还没选定时写「见仓库许可证」 |
 | `origin` | 是 | 本仓库只能是 `official` |
-| `icon` | 否 | `null`、绝对 URL，或将要放在 `catalog` Release 上的相对路径 |
-| `screenshots` | 否 | 字符串数组，规则同 `icon` |
-| `summary` | 否 | 清单没写 `description` 时，索引用它当简介 |
-| `min_app` / `max_app` | 否 | 只作说明，服务器不检查 |
-| `app` | 否 | 预留，现在写 `null` |
+| `summary` | 是 | 市场卡片上的一句话，60 字以内。详细说明写清单的 `description` |
+| `homepage` | 否 | 不写就是本仓库里这个插件的目录。若写的是别的 GitHub 仓库根地址（`https://github.com/<owner>/<repo>`），反馈会去那个仓库 |
+| `issues_url` | 否 | 反馈发到这个地址，须是 `https://github.com/<owner>/<repo>/issues` 开头。写了就盖过 `homepage` |
+| `category` | 否 | `storage` `downloader` `messaging` `sites` `library` `tools` 之一。不写时按 `[requires]` 推断：`drive-backends` 是网盘，`downloader-adapters` 是下载器，`im-channels` 是消息通道，`site-classes` / `site-data-packs` 是站点，`ingest-steps` 是媒体库，其余是工具 |
+| `icon` | 否 | 插件目录里的 `.svg` / `.png` / `.webp`，256 KB 以内，SVG 里不能有脚本。不写时市场按分类给默认图标 |
+| `screenshots` | 否 | 插件目录里的图片路径数组，规则同 `icon` |
+| `yanked` | 否 | `{"0.2.0": "撤回原因"}`：这一版不再推荐，已装的人会看到原因 |
+| `deprecated` | 否 | `{"reason": "…", "replaced_by": "新插件 id 或 null"}`：整个插件不再维护 |
 
-发版：
+图片由 CI 按内容命名后放到 `catalog` Release 上（`<id>-icon-<哈希>.svg`），索引里带 sha256。不接受外部网址；指向本仓库里这个插件目录的 raw 地址按目录里的文件处理。旧的 `min_app` / `max_app` / `app` 字段会被忽略，可以删掉。
 
-1. `plugins/<id>/` 合进 `main`，清单 `version` 是这次要发的号。
+反馈：索引里的 `feedback_url` 是市场该打开的地址。没写 `issues_url`、`homepage` 也不是别的 GitHub 仓库时，它是本仓库的 issue 表单，只带插件 id，没有版本参数：
+
+`https://github.com/movieclaw/movieclaw-plugins/issues/new?template=plugin-feedback.yml&plugin=<id>`
+
+应用打开时再补 `plugin_version` 和 `movieclaw_version`。地址里已经有 `?` 就接 `&`，没有就接 `?`。表单字段 id 就是这三个参数名，外加 `description` 和 `steps`。表单会打上 `plugin-feedback`；issue 打开后，工作流在 id 已进入索引时再打 `plugin:<id>`。
+
+`downloads` 是这个插件各已发布版本的 `.mcplugin` 在 GitHub 上的下载次数之和，由发版和每天的 catalog 工作流写进签名索引。旧版应用不认识 `feedback_url` 和 `downloads`，会忽略。
+
+`CHANGELOG.md` 每个版本一节，标题是 `## <版本>`（可以带日期，如 `## 1.2.0 - 2026-10-21`）。这一节就是 Release 正文和市场里这一版的更新说明。打 tag 时没有这一节会直接失败，PR 上的 `--lint` 也会报。
+
+发新版本：
+
+1. 改 `plugins/<id>/` 的代码、清单 `version` 和 `CHANGELOG.md`，开 PR，合进 `main`。
 2. 推 tag `<id>-v<version>`，例如 `hello-note-v0.1.0`。
-3. `release.yml` 核对 tag 和清单版本，用钉死的 MovieClaw 再跑一遍 `check_plugin.py`，用 `scripts/pack.py` 打包，创建 Release（`--latest=false`），重生 `index.json`，覆盖 `catalog` Release 上的 `index.json`。有签名密钥时一并上传 `index.json.sig`。
+3. `release.yml` 核对 tag、清单版本和 CHANGELOG，用钉死的 MovieClaw 再跑一遍 `check_plugin.py`，用 `scripts/pack.py` 打包，用这一版的 CHANGELOG 创建 Release（`--latest=false`）。然后在 `main` 上重生 `index.json`，签名后连同图片上传到 `catalog` Release，再把 `index.json` 提交回 `main`。
 
-索引地址：
+只改元数据（简介、分类、图标、撤回、弃用、反馈地址）不用发版：
+
+1. 改 `store.json` 或图标，运行 `python3 scripts/generate_index.py --update`，把 `index.json` 一起提交。CI 的 `--check` 会核对两者一致。
+2. 合进 `main` 后 `catalog.yml` 自动签名并上传。也可以在 Actions 里手动运行它。
+
+索引里每个版本的权限、`sdk`、`[requires]`、依赖、README 和更新说明，都是从那一版的 tag 读出来的，以后改 `main` 上的清单不会改到旧版本。所以 tag 发出去就不要再移动。
+
+索引地址（旁边的 `index.json.sig` 是签名）：
 
 `https://github.com/movieclaw/movieclaw-plugins/releases/download/catalog/index.json`
 
@@ -383,7 +406,7 @@ python3 -m unittest discover -s example/hello-note/tests -t example/hello-note -
 python3 scripts/pack.py example/hello-note --output /tmp/hello-note-0.1.0.mcplugin
 ```
 
-本仓库 CI 对 PR 做的就是前两步，MovieClaw 钉在 v0.37.0。
+本仓库 CI 对 PR 做的就是前两步，MovieClaw 钉在 v0.42.0。
 
 ## 装不上时
 

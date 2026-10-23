@@ -1,0 +1,12 @@
+{
+  "name": "映屿",
+  "short_name": "映屿",
+  "start_url": ".",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "type": "image/svg+xml",
+      "purpose": "monochrome"
+    }
+  ]
+}

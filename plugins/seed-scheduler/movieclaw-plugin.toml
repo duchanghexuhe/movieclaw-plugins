@@ -1,0 +1,56 @@
+[plugin]
+id = "seed-scheduler"
+title = "种子做种定时清理"
+version = "1.1.0"
+entry = "seed_scheduler"
+runtime = "process"
+sdk = "^1.0"
+description = "给下载器里的种子设做种时长：到点自动删任务（可连数据文件一起删），不依赖 MovieClaw 入库——只把它当下载器用也行。站点 H&R 要求、还在下载中、正在播放、订阅正在用的种子会先留着；被挡住的会提醒你处理。"
+
+[requires]
+"host-ops" = "^1.0"
+"plugin-data" = "^1.0"
+"plugin-events" = "^1.0"
+"job-handlers" = "^1.1"
+"plugin-jobs" = "^1.0"
+"scheduled-tasks" = "^1.0"
+"download.completed" = "^2.0"
+"library.ingest.completed" = "^1.0"
+"library.item.viewed" = "^2.0"
+"playback.started" = "^2.0"
+
+[permissions]
+operations = [
+  "dl.list",
+  "dl.tasks",
+  "dl.file-sources.list",
+  "library.list",
+  "library.items.get",
+  "library.items.relations",
+  "dl.torrent.delete",
+]
+# 直连 qBittorrent WebAPI 读种子状态（含做种时长、标签），不经过宿主
+network = true
+events = ["playback.*", "library.item.viewed"]
+
+[[events]]
+name = "seed-scheduler.seed-removed"
+title = "做种定时：种子已到期删除"
+
+[[events]]
+name = "seed-scheduler.seed-overdue"
+title = "做种定时：种子到期但被安全线挡着没删"
+
+[[notifications]]
+event = "seed-scheduler.seed-removed"
+title = "已清理到期的做种任务：{name}"
+body = "已做种 {seeded_hours} 小时，从下载器删除{files}"
+level = "passive"
+default = true
+
+[[notifications]]
+event = "seed-scheduler.seed-overdue"
+title = "「{name}」做种已超时，但被安全线挡着没删"
+body = "已做种 {seeded_hours} 小时（超过 {hours} 小时），文件还留在磁盘上，需要你处理"
+level = "passive"
+default = true

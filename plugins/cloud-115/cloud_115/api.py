@@ -3,16 +3,21 @@
 
 接口路径、参数与加密方式参考 p115client（MIT），按 115 的改版跟进。这里只管「发请求、认响应、把错误归类」，
 不管账号、限速和重试：限速与重试在宿主，插件抛 ``movieclaw_sdk.drives`` 的异常即可。
+
+请求一律经 SDK 的网络出口（``movieclaw_sdk.net``）：宿主的限速按请求计、就装在这个出口上——一次整树列举翻几十页，
+每页都排队领名额；用户在「网络与代理」里给本插件配的代理也在这里生效。
 """
 
 from __future__ import annotations
 
 import json
+from http.cookiejar import CookieJar, DefaultCookiePolicy
 from typing import Any
 
 import httpx
 
 from movieclaw_sdk import drives as dv
+from movieclaw_sdk import net
 
 WEB_UA = "Mozilla/5.0"
 APP_VERSION = "36.2.28"
@@ -117,10 +122,22 @@ def _maybe_decrypt(content: bytes) -> Any:
 
 
 class Api115:
-    """115 的接口集合。``transport`` 给测试注入仿 115 服务。"""
+    """115 的接口集合。``transport`` 给测试注入仿 115 服务，缺省走 SDK 网络出口。"""
 
     def __init__(self, transport: httpx.AsyncBaseTransport | None = None) -> None:
-        self._transport = transport
+        self._transport = transport or net.http_transport("cloud-115")
+        self._client: httpx.AsyncClient | None = None
+
+    def _http(self) -> httpx.AsyncClient:
+        # 一个客户端长期复用：退出 ``async with`` 会关掉共享的出口。各账号的 Cookie 都在请求头里显式带，
+        # 客户端自己一个 Cookie 也不存，免得多个账号串号
+        if self._client is None:
+            self._client = httpx.AsyncClient(
+                transport=self._transport,
+                follow_redirects=False,
+                cookies=CookieJar(DefaultCookiePolicy(allowed_domains=[])),
+            )
+        return self._client
 
     async def _send(
         self,
@@ -136,8 +153,7 @@ class Api115:
         if cookies:
             headers["cookie"] = cookie_header(cookies)
         try:
-            async with httpx.AsyncClient(transport=self._transport, timeout=timeout, follow_redirects=False) as client:
-                response = await client.request(method, url, headers=headers, **kwargs)
+            response = await self._http().request(method, url, headers=headers, timeout=timeout, **kwargs)
         except httpx.TimeoutException as exc:
             raise dv.Transient("连接 115 超时") from exc
         except httpx.TransportError as exc:

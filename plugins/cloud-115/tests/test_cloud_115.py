@@ -8,10 +8,12 @@ import hashlib
 import unittest
 from unittest import mock
 
+import httpx
 from cloud_115.api import Api115
 from cloud_115.backend import Pan115
 
 from movieclaw_sdk import drives as dv
+from movieclaw_sdk import net
 
 from .fake115 import COOKIES, Fake115
 
@@ -112,6 +114,38 @@ class BrowseTest(Base):
         self.assertEqual(dune.size, 400)
         self.assertEqual(dune.sha1, hashlib.sha1(b"dune" * 100).hexdigest().upper())
         self.assertEqual(len(tree.dir_ids), 3)
+
+    @unittest.skipUnless(hasattr(net, "pacer"), "宿主的 SDK 还不按请求限速")
+    async def test_every_page_waits_for_the_host_rate_limit(self) -> None:
+        # 宿主的限速装在 SDK 网络出口上：整树列举翻的每一页都要先领名额（#907）
+        for i in range(4):  # 刮削留下的图片之类：文件那一轮要翻好几页
+            self.fake.put(self.movies, f"poster{i}.jpg", b"x")
+        sent = 0
+        inner = self.fake.transport()
+
+        async def counting(request: httpx.Request) -> httpx.Response:
+            nonlocal sent
+            sent += 1
+            return await inner.handle_async_request(request)
+
+        with mock.patch.object(
+            net, "http_transport", lambda service: net._Paced(httpx.MockTransport(counting))
+        ):
+            backend = Pan115()
+        paced = 0
+
+        async def pacer() -> None:
+            nonlocal paced
+            paced += 1
+
+        token = net.pacer.set(pacer)
+        try:
+            tree = await backend.list_tree(self.account, str(self.movies))
+        finally:
+            net.pacer.reset(token)
+        self.assertEqual(len(tree.files), 7)
+        self.assertGreaterEqual(sent, 4)  # 仿 115 一页只给 3 条：目录一页，文件三页
+        self.assertEqual(paced, sent)
 
     async def test_missing_directory_is_not_found(self) -> None:
         with self.assertRaises(dv.NotFound):
