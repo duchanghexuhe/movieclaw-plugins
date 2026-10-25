@@ -1,0 +1,1710 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<title>Aerial</title>
+<style>
+  :root {
+    --bg: #f2f2f7; --card: #ffffff; --label: #000; --secondary: rgba(60,60,67,.6); --tertiary: rgba(60,60,67,.3);
+    --sep: rgba(60,60,67,.18); --tint: #007aff; --fill: rgba(118,118,128,.12); --danger: #ff3b30;
+    --bar: rgba(249,249,249,.82); --bar-line: rgba(0,0,0,.14); --scrim: rgba(0,0,0,.32); --sheet: #f2f2f7;
+    --ease-out: cubic-bezier(.23,1,.32,1); --ease-drawer: cubic-bezier(.32,.72,0,1);
+    --tabbar: calc(50px + env(safe-area-inset-bottom));
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000; --card: #1c1c1e; --label: #fff; --secondary: rgba(235,235,245,.6); --tertiary: rgba(235,235,245,.3);
+      --sep: rgba(84,84,88,.6); --tint: #0a84ff; --fill: rgba(118,118,128,.24); --danger: #ff453a;
+      --bar: rgba(22,22,22,.82); --bar-line: rgba(255,255,255,.12); --scrim: rgba(0,0,0,.5); --sheet: #1c1c1e;
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--label);
+    font: 17px/1.35 -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "HarmonyOS Sans SC", "MiSans", system-ui, sans-serif;
+  }
+  button { font: inherit; color: inherit; }
+  /* A display rule would otherwise show what is hidden. */
+  [hidden] { display: none !important; }
+
+  main { max-width: 720px; margin: 0 auto; padding: env(safe-area-inset-top) 16px calc(var(--tabbar) + 32px); }
+  header { padding: 28px 4px 4px; }
+  header h1 { font-size: 34px; font-weight: 700; letter-spacing: -.02em; margin: 0; }
+  header p { margin: 2px 0 0; color: var(--secondary); font-size: 15px; }
+
+  h2 { font-size: 13px; font-weight: 400; color: var(--secondary); margin: 28px 16px 7px; }
+  h2.big { font-size: 20px; font-weight: 700; text-transform: none; letter-spacing: -.01em; color: var(--label); margin: 28px 4px 10px; }
+  .foot { color: var(--secondary); font-size: 13px; margin: 7px 16px 0; }
+  .foot .link { font-size: 13px; }
+  #sections .foot { margin: 8px 4px 0; }
+  section > .list:first-child, section > .hero:first-child { margin-top: 14px; }
+
+  /* Inset grouped list, as in iOS Settings. */
+  .list { background: var(--card); border-radius: 12px; overflow: hidden; }
+  .item {
+    position: relative; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 11px 16px;
+    border: 0; background: none; text-align: left; transition: background-color .2s ease;
+  }
+  .item + .item::before { content: ""; position: absolute; top: 0; left: 16px; right: 0; height: .5px; background: var(--sep); }
+  button.item:active, label.item:active { background: var(--fill); transition-duration: 0s; }
+  .item .txt { flex: 1; min-width: 0; }
+  .item .sub { display: block; font-size: 13px; color: var(--secondary); margin-top: 2px; }
+  .item .val { color: var(--secondary); white-space: nowrap; }
+  .item .chev { color: var(--tertiary); flex-shrink: 0; }
+  .item.tint { color: var(--tint); }
+  .item.danger { color: var(--danger); }
+  .item.center { justify-content: center; font-weight: 500; }
+  .item .thumb { width: 64px; aspect-ratio: 16 / 9; border-radius: 6px; object-fit: cover; background: var(--fill); flex-shrink: 0; }
+  .item:has(.thumb) + .item::before { left: 92px; }
+  .tick { color: var(--tint); flex-shrink: 0; opacity: 0; transform: scale(.8); transition: opacity .15s ease, transform .2s var(--ease-out); }
+  [aria-checked="true"] .tick { opacity: 1; transform: none; }
+  .item[disabled] { opacity: .5; }
+  .item select { position: absolute; inset: 0; opacity: 0; width: 100%; font-size: 16px; }
+  .switch {
+    appearance: none; -webkit-appearance: none; position: relative; flex-shrink: 0; width: 51px; height: 31px; margin: 0;
+    border-radius: 16px; background: var(--fill); cursor: pointer; transition: background-color .2s ease;
+  }
+  .switch::after {
+    content: ""; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: #fff;
+    box-shadow: 0 3px 8px rgba(0,0,0,.15), 0 1px 1px rgba(0,0,0,.16); transition: transform .25s var(--ease-out);
+  }
+  .switch:checked { background: #34c759; }
+  .switch:checked::after { transform: translateX(20px); }
+  .switch:disabled { opacity: .5; }
+
+  /* Wallpaper cards. */
+  .hero { position: relative; margin-top: 14px; border-radius: 16px; overflow: hidden; background: var(--fill); aspect-ratio: 16 / 9; }
+  .hero img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .hero .cap {
+    position: absolute; left: 0; right: 0; bottom: 0; padding: 32px 16px 12px; color: #fff;
+    background: linear-gradient(to top, rgba(0,0,0,.6), rgba(0,0,0,0));
+  }
+  .hero .cap small { display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; opacity: .8; }
+  .hero .cap b { font-size: 20px; font-weight: 600; }
+  /* Cells start at the top: a button centres its content, so a tile without a caption sat lower than its neighbour. */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px 12px; align-items: start; }
+  .wp { position: relative; display: block; border: 0; padding: 0; background: none; text-align: left; min-width: 0; }
+  .wp .pic {
+    position: relative; border-radius: 12px; overflow: hidden; background: var(--fill); aspect-ratio: 16 / 9;
+    transition: transform .16s var(--ease-out), box-shadow .2s ease;
+  }
+  .wp .pic img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .wp:active .pic { transform: scale(.97); }
+  .wp[aria-selected="true"] .pic { box-shadow: 0 0 0 2.5px var(--bg), 0 0 0 5px var(--tint); }
+  .wp .t { font-size: 14px; font-weight: 500; margin: 7px 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wp .c { font-size: 12px; color: var(--secondary); margin: 1px 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .check {
+    position: absolute; top: 7px; right: 7px; width: 22px; height: 22px; border-radius: 50%;
+    background: var(--tint); color: #fff; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,.3); opacity: 0; transform: scale(.8);
+    transition: opacity .15s ease, transform .2s var(--ease-out);
+  }
+  .wp[aria-selected="true"] .check { opacity: 1; transform: none; }
+  .badge {
+    position: absolute; top: 7px; left: 7px; width: 28px; height: 28px; border-radius: 50%; border: 0; padding: 0;
+    background: rgba(0,0,0,.5); color: #fff; display: flex; align-items: center; justify-content: center;
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); transition: transform .16s var(--ease-out);
+  }
+  .badge:active { transform: scale(.9); }
+  .tag { position: absolute; left: 7px; bottom: 7px; font-size: 11px; font-weight: 600; color: #fff; padding: 2px 7px; border-radius: 6px; background: rgba(0,0,0,.5); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+
+  .btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 14px; border: 0; border-radius: 12px;
+    background: var(--tint); color: #fff; font-weight: 600; text-decoration: none; cursor: pointer;
+    transition: transform .16s var(--ease-out), opacity .2s ease;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn[disabled] { opacity: .6; pointer-events: none; }
+  .btn.plain { background: var(--card); color: var(--tint); }
+  .row { display: flex; gap: 10px; margin-top: 10px; }
+  .row .btn { flex: 1; }
+  .add { margin-bottom: 14px; }
+  .empty { color: var(--secondary); font-size: 15px; padding: 4px 4px 0; margin: 0; }
+  .link { appearance: none; border: 0; background: none; color: var(--tint); padding: 0; cursor: pointer; }
+
+  .wx { display: flex; align-items: baseline; gap: 10px; }
+  .wx b { font-size: 28px; font-weight: 600; letter-spacing: -.01em; }
+  .wx span { color: var(--secondary); font-size: 15px; }
+  .field { display: flex; align-items: center; gap: 8px; }
+  .field input {
+    flex: 1; min-width: 0; font: inherit; font-size: 17px; color: var(--label); background: none; border: 0; outline: none; padding: 0;
+  }
+  .field input::placeholder { color: var(--tertiary); }
+  .field .link { font-weight: 600; }
+  .field .link[disabled] { opacity: .4; }
+  /* A <pre>, not a textarea: focusing a field under 16px makes iOS zoom and scroll the page. */
+  .diag {
+    display: block; height: 220px; margin: 10px 0 0; overflow: auto; -webkit-overflow-scrolling: touch;
+    font: 12px/1.4 ui-monospace, Menlo, monospace; white-space: pre-wrap; word-break: break-word;
+    -webkit-user-select: text; user-select: text;
+    color: var(--label); background: var(--card); border-radius: 12px; padding: 10px;
+  }
+
+  /* Tab bar. */
+  nav {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; height: var(--tabbar); padding-bottom: env(safe-area-inset-bottom);
+    display: flex; justify-content: center; background: var(--bar); box-shadow: 0 -.5px 0 var(--bar-line);
+    -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+  }
+  nav button {
+    flex: 1; max-width: 160px; border: 0; background: none; padding: 6px 0 0; color: var(--secondary);
+    display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 10.5px; font-weight: 500; cursor: pointer;
+  }
+  nav button svg { transition: transform .16s var(--ease-out); }
+  nav button:active svg { transform: scale(.88); }
+  nav button[aria-selected="true"] { color: var(--tint); }
+
+  /* Bottom sheet. Enters on the drawer curve; leaves faster than it came. */
+  .back { display: inline-flex; align-items: center; gap: 3px; font-size: 17px; margin: 0 0 6px -2px; }
+  .arow { min-height: 60px; background: var(--card); }
+  .arow .thumb { width: 64px; }
+  .arow .act { flex-shrink: 0; font-weight: 600; }
+  /* Home as on the TV: five tiles a row, the first on a shelf. */
+  .agrid {
+    position: relative; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px 7px;
+    padding: 12px 10px 14px; background: var(--card); border-radius: 14px;
+  }
+  .agrid .shelf { position: absolute; left: 4px; right: 4px; top: 4px; border-radius: 11px; background: var(--fill); pointer-events: none; }
+  .atile {
+    position: relative; display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 0; cursor: grab;
+    touch-action: pan-y; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  }
+  .atile .tpic {
+    width: 100%; aspect-ratio: 16 / 9; border-radius: 6px; overflow: hidden; background: var(--fill);
+    box-shadow: 0 1px 2px rgba(0,0,0,.14); transition: transform .16s var(--ease-out), box-shadow .2s ease;
+  }
+  .atile .tpic img { display: block; width: 100%; height: 100%; object-fit: cover; pointer-events: none; -webkit-user-drag: none; }
+  .atile .n { width: 100%; font-size: 10.5px; line-height: 1.25; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .atile:active .tpic { transform: scale(.95); }
+  .agrid.sorting .atile:not(.lift) { transition: transform .26s var(--ease-out); }
+  .atile.lift { z-index: 3; cursor: grabbing; }
+  .atile.lift .tpic { transform: scale(1.14); box-shadow: 0 14px 30px rgba(0,0,0,.32), 0 3px 8px rgba(0,0,0,.18); }
+  .atile.lift .n { opacity: 0; }
+  .icon-sq { width: 30px; height: 30px; border-radius: 7px; background: var(--tint); color: #fff; display: grid; place-items: center; flex-shrink: 0; }
+  .sheet-wrap { position: fixed; inset: 0; z-index: 20; }
+  .scrim { position: absolute; inset: 0; background: var(--scrim); opacity: 0; transition: opacity .2s ease; }
+  /* Into a folder from the right; back out of it from the left, the way it went. */
+  .view.push { animation: push .26s var(--ease-out); }
+  .view.pop { animation: pop .26s var(--ease-out); }
+  @keyframes push { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+  @keyframes pop { from { opacity: 0; transform: translateX(-24px); } to { opacity: 1; transform: none; } }
+  .sheet {
+    max-height: calc(100% - env(safe-area-inset-top) - 24px); overflow-y: auto; overscroll-behavior: contain;
+    position: absolute; left: 0; right: 0; bottom: 0; max-width: 520px; margin: 0 auto; background: var(--sheet);
+    border-radius: 14px 14px 0 0; padding: 8px 16px calc(16px + env(safe-area-inset-bottom));
+    transform: translateY(100%); transition: transform .2s var(--ease-out);
+  }
+  .sheet-wrap.open .scrim { opacity: 1; transition-duration: .3s; }
+  .sheet-wrap.open .sheet { transform: none; transition: transform .38s var(--ease-drawer); }
+  .grab { width: 36px; height: 5px; border-radius: 3px; background: var(--tertiary); margin: 0 auto 14px; }
+  .sheet .pic { border-radius: 12px; overflow: hidden; aspect-ratio: 16 / 9; background: var(--fill); width: 62%; margin: 0 auto; }
+  .sheet .pic img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .sheet h3 { text-align: center; font-size: 17px; font-weight: 600; margin: 12px 0 2px; }
+  .sheet .meta { text-align: center; font-size: 13px; color: var(--secondary); margin: 0 0 16px; }
+  .sheet .list { background: var(--card); }
+  @media (prefers-color-scheme: dark) { .sheet .list { background: #2c2c2e; } }
+  .sheet .list + .list { margin-top: 10px; }
+
+  .toast {
+    position: fixed; z-index: 30; left: 50%; bottom: calc(var(--tabbar) + 16px); transform: translate(-50%, 12px);
+    background: rgba(30,30,30,.92); color: #fff; padding: 10px 18px; border-radius: 22px; font-size: 15px; max-width: calc(100% - 32px);
+    opacity: 0; transition: opacity .2s ease, transform .3s var(--ease-out); pointer-events: none;
+    -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+  }
+  .toast.on { opacity: 1; transform: translate(-50%, 0); }
+  @media (prefers-reduced-motion: reduce) {
+    .sheet, .sheet-wrap.open .sheet { transition: none; }
+    .view.push, .view.pop { animation: none; }
+    .agrid.sorting .atile:not(.lift) { transition: none; }
+    .toast { transform: translate(-50%, 0); }
+  }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <button class="link back" id="homeBack" hidden><svg width="11" height="18" viewBox="0 0 12 20" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2L2 10l8 8"/></svg><span data-i18n="tab_home"></span></button>
+  <h1 id="title"></h1>
+  <p>{{DEVICE}}</p>
+</header>
+
+<!-- Home screen: the TV's tiles, arranged here -->
+<section data-tab="home">
+  <div id="homeBody"></div>
+  <div id="inputsBox" hidden>
+    <h2 data-i18n="inputs_h"></h2>
+    <div class="list" id="inputs"></div>
+    <p class="foot" data-i18n="inputs_hint"></p>
+  </div>
+  <input id="iconFile" type="file" accept="image/*" hidden>
+</section>
+
+<!-- Wallpaper and screensaver -->
+<section data-tab="looks" hidden>
+  <div class="hero" id="hero"><img id="heroImg" alt=""><div class="cap"><small data-i18n="current_wp"></small><b id="heroTitle"></b></div></div>
+  <div id="sections"></div>
+
+  <h2 class="big" data-i18n="screensaver"></h2>
+  <div class="list" id="ss" role="radiogroup" data-i18n-aria-label="screensaver_short">
+    <button class="item" role="radio" data-mode="aerial"><span class="txt"><span data-i18n="ss_aerial"></span><span class="sub" data-i18n="hint_aerial"></span></span><svg class="tick" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
+    <button class="item" role="radio" data-mode="photos"><span class="txt"><span data-i18n="ss_photos"></span><span class="sub" data-i18n="hint_photos"></span></span><svg class="tick" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
+    <button class="item" role="radio" data-mode="clock"><span class="txt"><span data-i18n="ss_clock"></span><span class="sub" data-i18n="hint_clock"></span></span><svg class="tick" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
+    <button class="item" role="radio" data-mode="videos"><span class="txt"><span data-i18n="ss_videos"></span><span class="sub" data-i18n="hint_videos"></span></span><svg class="tick" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
+  </div>
+  <p class="foot" id="ssFoot"></p>
+  <div id="videos" hidden>
+    <h2 data-i18n="videos_h"></h2>
+    <div class="list" id="videoList"></div>
+    <div class="list" style="margin-top:10px">
+      <label class="item tint center" id="videoUploadBtn">
+        <span id="videoUploadLabel" data-i18n="videos_upload"></span>
+        <input id="videoFile" type="file" accept=".mp4,.mov,video/mp4,video/quicktime" multiple hidden>
+      </label>
+    </div>
+    <p class="foot" data-i18n="videos_hint"></p>
+  </div>
+</section>
+
+<!-- More -->
+<section data-tab="more" hidden>
+  <h2 data-i18n="focus"></h2>
+  <div class="list" id="focus" role="radiogroup" data-i18n-aria-label="focus">
+    <button class="item" role="radio" data-style="high_contrast"><span class="txt"><span data-i18n="focus_high"></span><span class="sub" data-i18n="focus_hint_high"></span></span><svg class="tick" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
+    <button class="item" role="radio" data-style="standard"><span class="txt"><span data-i18n="focus_standard"></span><span class="sub" data-i18n="focus_hint_standard"></span></span><svg class="tick" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
+  </div>
+
+  <h2 data-i18n="weather"></h2>
+  <div class="list">
+    <div class="item wx"><b id="wxNow">—</b><span id="wxPlace"></span></div>
+    <form class="item field" id="cityForm">
+      <input id="city" type="text" data-i18n-placeholder="city_ph" enterkeyhint="done" autocomplete="off">
+      <button class="link" id="cityBtn" data-i18n="set" disabled></button>
+    </form>
+  </div>
+  <p class="foot" id="wxHint"></p>
+
+  <h2 data-i18n="this_tv"></h2>
+  <div class="list">
+    <div class="item"><span class="txt" data-i18n="tv_model"></span><span class="val">{{DEVICE}}</span></div>
+    <div class="item"><span class="txt" data-i18n="language"></span><span class="val" id="langName"></span><svg class="chev" width="8" height="14" viewBox="0 0 8 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6 6-6 6"/></svg><select id="lang" data-i18n-aria-label="language"></select></div>
+  </div>
+
+  <h2 data-i18n="feedback_h"></h2>
+  <div class="list"><button class="item tint center" id="diagBtn" data-i18n="diag_show"></button></div>
+  <pre class="diag" id="diag" hidden></pre>
+  <div class="row" id="diagActions" hidden>
+    <button class="btn" id="diagCopy" data-i18n="diag_copy"></button>
+    <a class="btn plain" href="https://github.com/pengchujin/aerial-tv/issues/new?template=device.yml" target="_blank" rel="noopener" data-i18n="diag_github"></a>
+  </div>
+  <p class="foot" data-i18n="feedback_hint"></p>
+</section>
+</main>
+
+<nav role="tablist">
+  <button role="tab" data-go="home"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="7" height="6" rx="1.8"/><rect x="13.5" y="4.5" width="7" height="6" rx="1.8"/><rect x="3.5" y="13.5" width="7" height="6" rx="1.8"/><rect x="13.5" y="13.5" width="7" height="6" rx="1.8"/></svg><span data-i18n="tab_home"></span></button>
+  <button role="tab" data-go="looks"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="3"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M3.5 17l5-5 4 4 2.5-2.5 5.5 5"/></svg><span data-i18n="tab_looks"></span></button>
+  <button role="tab" data-go="more"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="8" cy="12" r=".6" fill="currentColor"/><circle cx="12" cy="12" r=".6" fill="currentColor"/><circle cx="16" cy="12" r=".6" fill="currentColor"/></svg><span data-i18n="tab_more"></span></button>
+</nav>
+
+<div class="sheet-wrap" id="sheet" hidden>
+  <div class="scrim" id="scrim"></div>
+  <div class="sheet" role="dialog" aria-modal="true">
+    <div class="grab"></div>
+    <div id="sheetBody"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const base = location.pathname.replace(/\/?$/, '/');
+const $ = s => document.querySelector(s);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+let state = null, stateJson = '';
+
+// The language: ?lang=ru in the address, else the one picked under More (kept on the phone), else the
+// first of the phone's preferred languages that has a table, else English. Keys are in KEYS, one array of texts per language.
+const KEYS = ["screensaver", "screensaver_short", "ss_aerial", "ss_photos", "ss_clock", "focus", "focus_high", "focus_standard", "weather", "city_ph", "set", "upload_label", "feedback_h", "feedback_hint", "diag_show", "diag_copy", "diag_github", "hint_aerial", "hint_photos", "hint_clock", "g_live", "g_live_sub", "g_daily", "g_daily_sub", "g_photo", "g_builtin", "g_auto", "toast_wallpaper", "aria_delete", "confirm_delete", "wx_clear", "wx_partlycloudy", "wx_cloudy", "wx_fog", "wx_rain", "wx_snow", "wx_thunder", "wx_chosen", "wx_auto_btn", "toast_auto", "wx_guessed", "wx_none", "tag_source", "aria_rename", "toast_renamed", "toast_name_reset", "toast_rename_fail", "aria_reset_icon", "toast_icon_reset", "focus_hint_standard", "focus_hint_high", "daily_title", "daily_caption", "rotate_title", "rotate_caption", "empty_photos", "add_second", "toast_tv_updated", "sending_n", "toast_added", "toast_no_photos", "toast_send_fail", "toast_city_set", "toast_city_nf", "toast_set_fail", "toast_sending_icon", "toast_icon_set", "toast_icon_bad", "diag_collecting", "toast_diag_fail", "toast_copied", "toast_copy_manual", "language", "hint_follows", "ss_videos", "hint_videos", "videos_h", "videos_upload", "videos_hint", "videos_empty", "confirm_video_delete", "toast_videos_added", "toast_video_bad", "sending_video", "hint_system", "tab_home", "tab_more", "current_wp", "cancel", "save", "name_ph", "rename_hint", "change_icon", "this_tv", "folder_count", "folder_ph", "inputs_h", "inputs_hint", "rename_hint_app", "was_named", "arrange_hint", "arrange_unready", "hidden_h", "hidden_none", "hidden_locked", "show_app", "hide_app", "to_folder", "new_folder", "out_of_folder", "ungroup", "ungroup_confirm", "folder_hint", "toast_hidden", "toast_shown", "toast_in_folder", "toast_out_folder", "toast_ungrouped", "tab_looks", "looks_title", "show_on_home", "source_device", "source_plain", "source_device_hint", "tv_model"];
+const TEXTS = {
+ "zh": [
+  "屏幕保护程序",
+  "屏保",
+  "航拍",
+  "照片",
+  "时钟",
+  "焦点样式",
+  "高对比度",
+  "标准",
+  "天气",
+  "输入城市，例如 杭州",
+  "设置",
+  "添加照片",
+  "反馈问题",
+  "这台电视上 Aerial 有问题，或者想让 Aerial 适配它：复制诊断信息，贴进 GitHub 的「机型适配」反馈里。里面是机型、系统版本、桌面接管状态、信号源和 Aerial 的日志，不含账号、Wi-Fi 名称、IP 地址和照片。",
+  "显示诊断信息",
+  "复制",
+  "去 GitHub 反馈",
+  "播放 Apple TV 航拍影片，画面会标出所在的地点。",
+  "轮播每日精选和你的照片。",
+  "大号时钟，配合当前壁纸。",
+  "航拍",
+  "停在主屏幕 10 秒后，壁纸播放 Apple TV 的航拍；按任意键停在当前画面",
+  "每日精选",
+  "每天自动更新的风景摄影",
+  "我的照片",
+  "内置",
+  "更多",
+  "已设为电视壁纸",
+  "删除",
+  "删除这张照片？",
+  "晴",
+  "多云",
+  "阴",
+  "雾",
+  "雨",
+  "雪",
+  "雷雨",
+  "显示 {place} 的天气。",
+  "改回按网络自动定位",
+  "已改回自动定位",
+  "按网络自动定位：{place}。用了代理时常会定错，不对的话输入你所在的城市。",
+  "还没有定位到。输入你所在的城市。",
+  "信号源",
+  "起名字",
+  "电视上已改名",
+  "已恢复默认名字",
+  "改名失败，请重试",
+  "恢复默认图标",
+  "已恢复默认图标",
+  "与 Apple TV 默认一致：选中的 App 只放大浮起。",
+  "选中的 App 外面加一圈白色描边，离得远也看得清。",
+  "每日自动更新",
+  "总是使用当天的照片",
+  "每天换一张",
+  "每天自动换成下一张照片",
+  "还没有照片。用上面的按钮从手机添加。",
+  "再加一张照片，就可以选「每天换一张」。",
+  "电视上已更新",
+  "正在发送 {n} 张…",
+  "已添加 {n} 张，最后一张已设为壁纸",
+  "没有可用的照片",
+  "发送失败，请重试",
+  "已设为 {place}",
+  "没有找到「{name}」",
+  "设置失败，请重试",
+  "正在发送「{label}」的图标…",
+  "电视上已更换",
+  "这张图片用不了",
+  "正在收集…",
+  "没有取到，请重试",
+  "已复制",
+  "请长按文本框全选后复制",
+  "语言",
+  "还没选过，跟随壁纸：航拍壁纸配航拍，其他壁纸配照片，并从这张壁纸开始。选一个就固定下来。",
+  "视频",
+  "离线轮播已添加的视频；没有可播放的视频时显示照片。",
+  "屏保视频",
+  "添加视频",
+  "MP4 / MOV，建议 1080p H.264。每段最多 200 MB，总共 512 MB。",
+  "还没有视频，屏保暂时显示照片。",
+  "删除“{name}”？",
+  "视频：添加 {n} 段，失败 {failed} 段",
+  "无法保存，请检查视频格式和电视剩余空间",
+  "正在发送 {n} / {total}…",
+  "在电视的个性化里选了「系统内置」：用电视自带的屏保。在这里选一种就改回 Aerial 的屏保。",
+  "主屏幕",
+  "更多",
+  "当前壁纸",
+  "取消",
+  "保存",
+  "例如 客厅 Apple TV",
+  "给信号源起个名字，留空恢复默认名字。",
+  "从手机选一张图片",
+  "这台电视",
+  "{n} 个 App",
+  "文件夹名字",
+  "信号源",
+  "打开后，这个信号源会放到主屏幕第一个位置；在上面点它可以换图标、改名字。",
+  "改成你想在电视上看到的名字，留空恢复「{name}」。",
+  "原名：{name}",
+  "和电视上的排列一样，每排 5 个，第一排就是电视底板上的那一排。按住图标拖到想放的位置；点一下可以改名、换图标、放进文件夹或隐藏。",
+  "电视上的主屏幕还没准备好，回到电视的主屏幕后再试。",
+  "隐藏的 App",
+  "没有隐藏的 App。",
+  "家长密码已开启：有 {n} 个隐藏的 App，要在电视上输入密码后恢复。",
+  "显示",
+  "从主屏幕隐藏",
+  "放进文件夹",
+  "新建文件夹",
+  "移出文件夹",
+  "解散文件夹",
+  "解散「{name}」？里面的 App 会回到主屏幕。",
+  "按住图标拖动来调整顺序；点一下可以改名、换图标或移出文件夹。",
+  "已隐藏",
+  "已显示在主屏幕",
+  "已放进「{name}」",
+  "已移出文件夹",
+  "文件夹已解散",
+  "壁纸与屏保",
+  "壁纸与屏保",
+  "显示在主屏幕",
+  "接入的设备",
+  "默认",
+  "选一个设备，电视上这个信号源的图标会换成它的样子，名字也跟着变；自己起的名字会被替换。",
+  "型号"
+ ],
+ "en": [
+  "Screensaver",
+  "Screensaver",
+  "Aerial",
+  "Photos",
+  "Clock",
+  "Focus Style",
+  "High Contrast",
+  "Standard",
+  "Weather",
+  "Enter a city, e.g. London",
+  "Set",
+  "Add Photos",
+  "Report a Problem",
+  "Something is wrong with Aerial on this TV, or you want Aerial to support it: copy the diagnostics and paste them into a GitHub “Device” issue. They hold the model, the system version, the Home takeover status, the inputs and Aerial’s log, and no accounts, Wi-Fi names, IP addresses or photos.",
+  "Show Diagnostics",
+  "Copy",
+  "Report on GitHub",
+  "Plays Apple TV’s aerial films, with the place named on screen.",
+  "Cycles through the daily photos and yours.",
+  "A big clock over the current wallpaper.",
+  "Aerial",
+  "After 10 seconds on Home, the wallpaper plays Apple TV’s aerial films; press any key to stop on the current frame",
+  "Daily Photos",
+  "Landscape photography, updated every day",
+  "My Photos",
+  "Built-in",
+  "More",
+  "Set as the TV wallpaper",
+  "Delete",
+  "Delete this photo?",
+  "Clear",
+  "Partly cloudy",
+  "Cloudy",
+  "Fog",
+  "Rain",
+  "Snow",
+  "Thunderstorm",
+  "Showing the weather for {place}.",
+  "Go back to locating by network",
+  "Back to locating by network",
+  "Located from the network: {place}. A proxy often throws it off; if it is wrong, enter your city.",
+  "Not located yet. Enter your city.",
+  "Input",
+  "Rename",
+  "Renamed on the TV",
+  "Default name restored",
+  "Could not rename, try again",
+  "Restore default icon",
+  "Default icon restored",
+  "As on Apple TV: the selected app only lifts.",
+  "A white frame around the selected app, easy to see from across the room.",
+  "Always Today’s",
+  "Always uses today’s photo",
+  "One a Day",
+  "Switches to the next photo every day",
+  "No photos yet. Add some from your phone with the button above.",
+  "Add one more photo to choose “One a Day”.",
+  "Updated on the TV",
+  "Sending {n}…",
+  "Added {n}; the last one is now the wallpaper",
+  "No usable photos",
+  "Could not send, try again",
+  "Set to {place}",
+  "Could not find “{name}”",
+  "Could not set it, try again",
+  "Sending the icon for “{label}”…",
+  "Changed on the TV",
+  "That picture cannot be used",
+  "Collecting…",
+  "Could not get it, try again",
+  "Copied",
+  "Long-press the text box, select all and copy",
+  "Language",
+  "Not chosen yet, so it follows the wallpaper: aerial films with the aerial wallpaper, photos with a picture, starting from that picture. Choose one to keep it.",
+  "Videos",
+  "Loops your videos offline; shows photos when none can play.",
+  "Screensaver videos",
+  "Add videos",
+  "MP4 / MOV; 1080p H.264 recommended. Up to 200 MB each, 512 MB in total.",
+  "No videos yet; the screensaver shows photos until you add some.",
+  "Delete “{name}”?",
+  "Videos: {n} added, {failed} failed",
+  "Could not save; check the format and free space on the TV",
+  "Sending {n} / {total}…",
+  "“System” is chosen on the TV: the TV's own screensaver. Choose one here to use Aerial's again.",
+  "Home Screen",
+  "More",
+  "Current Wallpaper",
+  "Cancel",
+  "Save",
+  "e.g. Living Room Apple TV",
+  "Name this input; leave it empty to restore the default name.",
+  "Choose a Picture",
+  "This TV",
+  "{n} apps",
+  "Folder name",
+  "Inputs",
+  "Turned on, the input goes first on Home; tap it above to change its icon or name.",
+  "The name the TV shows; leave it empty to go back to “{name}”.",
+  "Originally “{name}”",
+  "Laid out as on the TV, five to a row; the first row is the one on the TV's shelf. Press and hold a tile and drag it into place; tap it to rename it, change its icon, put it in a folder or hide it.",
+  "Home on the TV is not ready; go back to Home on the TV and try again.",
+  "Hidden Apps",
+  "No hidden apps.",
+  "The parental PIN is on: {n} hidden apps can only be shown again on the TV, with the PIN.",
+  "Show",
+  "Hide from Home",
+  "Move to Folder",
+  "New Folder",
+  "Move Out of Folder",
+  "Ungroup Folder",
+  "Ungroup “{name}”? Its apps go back to Home.",
+  "Press and hold a tile to reorder; tap it to rename it, change its icon or move it out.",
+  "Hidden",
+  "Back on Home",
+  "Moved to “{name}”",
+  "Moved out of the folder",
+  "Folder ungrouped",
+  "Wallpaper",
+  "Wallpaper & Screensaver",
+  "Show on Home",
+  "Connected Device",
+  "Default",
+  "Pick a device and the tile on the TV takes its look and its name; a name you typed is replaced.",
+  "Model"
+ ],
+ "ru": [
+  "Заставка",
+  "Заставка",
+  "Аэросъёмка",
+  "Фото",
+  "Часы",
+  "Стиль фокуса",
+  "Высокий контраст",
+  "Стандартный",
+  "Погода",
+  "Введите город, например Москва",
+  "Задать",
+  "Добавить фото",
+  "Сообщить о проблеме",
+  "С Aerial на этом телевизоре что-то не так, или вы хотите, чтобы Aerial его поддерживал: скопируйте диагностику и вставьте её в обращение GitHub о моделях. В ней модель, версия системы, статус перехвата главного экрана, источники и журнал Aerial, без учётных записей, названий Wi-Fi, IP-адресов и фото.",
+  "Показать диагностику",
+  "Копировать",
+  "Сообщить на GitHub",
+  "Воспроизводит аэросъёмку Apple TV, на экране указано место.",
+  "Сменяются фото дня и ваши фото.",
+  "Большие часы поверх текущих обоев.",
+  "Аэросъёмка",
+  "После 10 секунд на главном экране обои воспроизводят аэросъёмку Apple TV; нажмите любую кнопку, чтобы остановиться на текущем кадре",
+  "Фото дня",
+  "Пейзажная фотография, обновляется каждый день",
+  "Мои фото",
+  "Встроенные",
+  "Ещё",
+  "Установлено как обои телевизора",
+  "Удалить",
+  "Удалить это фото?",
+  "Ясно",
+  "Переменная облачность",
+  "Облачно",
+  "Туман",
+  "Дождь",
+  "Снег",
+  "Гроза",
+  "Показана погода для: {place}.",
+  "Вернуться к определению по сети",
+  "Снова определяется по сети",
+  "Определено по сети: {place}. Прокси часто сбивает определение; если неверно, введите свой город.",
+  "Пока не определено. Введите свой город.",
+  "Источник",
+  "Переименовать",
+  "Переименовано на телевизоре",
+  "Название по умолчанию восстановлено",
+  "Не удалось переименовать, повторите",
+  "Вернуть значок по умолчанию",
+  "Значок по умолчанию возвращён",
+  "Как на Apple TV: выбранное приложение лишь приподнимается.",
+  "Белая рамка вокруг выбранного приложения, хорошо заметная с другого конца комнаты.",
+  "Всегда сегодняшнее",
+  "Всегда сегодняшнее фото",
+  "Одно в день",
+  "Каждый день сменяется следующим фото",
+  "Фото пока нет. Добавьте их с телефона кнопкой выше.",
+  "Добавьте ещё одно фото, чтобы выбрать «Одно в день».",
+  "Обновлено на телевизоре",
+  "Отправка: {n}…",
+  "Добавлено: {n}; последнее стало обоями",
+  "Нет подходящих фото",
+  "Не удалось отправить, повторите",
+  "Установлено: {place}",
+  "Не удалось найти «{name}»",
+  "Не удалось задать, повторите",
+  "Отправка значка для «{label}»…",
+  "Изменено на телевизоре",
+  "Эту картинку использовать нельзя",
+  "Сбор данных…",
+  "Не удалось получить, повторите",
+  "Скопировано",
+  "Удерживайте текстовое поле, выделите всё и скопируйте",
+  "Язык",
+  "Пока не выбрано, поэтому следует за обоями: аэросъёмка с обоями аэросъёмки, фото с картинкой, начиная с неё. Выберите, чтобы закрепить.",
+  "Видео",
+  "Видео повторяются без сети; если они недоступны, показываются фото.",
+  "Видео для заставки",
+  "Добавить видео",
+  "MP4 / MOV; рекомендуем 1080p H.264. До 200 МБ на файл, всего 512 МБ.",
+  "Видео пока нет; до их добавления заставка показывает фото.",
+  "Удалить «{name}»?",
+  "Видео: добавлено {n}, не удалось {failed}",
+  "Не удалось сохранить; проверьте формат и свободное место на ТВ",
+  "Отправка {n} / {total}…",
+  "На телевизоре выбрана «Системная»: заставка самого телевизора. Выберите здесь, чтобы вернуть заставку Aerial.",
+  "Главный экран",
+  "Ещё",
+  "Текущие обои",
+  "Отмена",
+  "Сохранить",
+  "например, Apple TV в гостиной",
+  "Назовите источник; оставьте пустым, чтобы вернуть название по умолчанию.",
+  "Выбрать картинку",
+  "Этот телевизор",
+  "Приложений: {n}",
+  "Название папки",
+  "Источники",
+  "Включённый источник встаёт первым на главном экране; нажмите на него выше, чтобы сменить значок или название.",
+  "Название, которое показывает телевизор; оставьте пустым, чтобы вернуть «{name}».",
+  "Исходное название: {name}",
+  "Как на телевизоре: по пять в ряд, первый ряд — тот, что на полке телевизора. Нажмите и удерживайте плитку и перетащите её; нажмите, чтобы переименовать, сменить значок, положить в папку или скрыть.",
+  "Главный экран телевизора ещё не готов; вернитесь на него и попробуйте снова.",
+  "Скрытые приложения",
+  "Скрытых приложений нет.",
+  "Включён родительский PIN: скрытых приложений {n}, вернуть их можно только на телевизоре с PIN-кодом.",
+  "Показать",
+  "Скрыть с главного экрана",
+  "Переместить в папку",
+  "Новая папка",
+  "Убрать из папки",
+  "Расформировать папку",
+  "Расформировать «{name}»? Приложения вернутся на главный экран.",
+  "Нажмите и удерживайте плитку, чтобы изменить порядок; нажмите, чтобы переименовать, сменить значок или убрать из папки.",
+  "Скрыто",
+  "Снова на главном экране",
+  "Перемещено в «{name}»",
+  "Убрано из папки",
+  "Папка расформирована",
+  "Обои",
+  "Обои и заставка",
+  "Показать на главном экране",
+  "Подключённое устройство",
+  "По умолчанию",
+  "Выберите устройство — плитка на телевизоре примет его вид и название; введённое вами название заменится.",
+  "Модель"
+ ],
+ "uk": [
+  "Заставка",
+  "Заставка",
+  "Аерозйомка",
+  "Фото",
+  "Годинник",
+  "Стиль фокуса",
+  "Високий контраст",
+  "Стандартний",
+  "Погода",
+  "Введіть місто, наприклад Київ",
+  "Задати",
+  "Додати фото",
+  "Повідомити про проблему",
+  "З Aerial на цьому телевізорі щось не так, або ви хочете, щоб Aerial його підтримував: скопіюйте діагностику й вставте її в звернення GitHub про моделі. У ній модель, версія системи, статус перехоплення головного екрана, джерела та журнал Aerial, без облікових записів, назв Wi-Fi, IP-адрес і фото.",
+  "Показати діагностику",
+  "Копіювати",
+  "Повідомити на GitHub",
+  "Відтворює аерозйомку Apple TV, на екрані вказано місце.",
+  "Змінюються фото дня та ваші фото.",
+  "Великий годинник поверх поточних шпалер.",
+  "Аерозйомка",
+  "Після 10 секунд на головному екрані шпалери відтворюють аерозйомку Apple TV; натисніть будь-яку кнопку, щоб зупинитися на поточному кадрі",
+  "Фото дня",
+  "Пейзажна фотографія, оновлюється щодня",
+  "Мої фото",
+  "Вбудовані",
+  "Ще",
+  "Встановлено як шпалери телевізора",
+  "Видалити",
+  "Видалити це фото?",
+  "Ясно",
+  "Мінлива хмарність",
+  "Хмарно",
+  "Туман",
+  "Дощ",
+  "Сніг",
+  "Гроза",
+  "Показано погоду для: {place}.",
+  "Повернутися до визначення за мережею",
+  "Знову визначається за мережею",
+  "Визначено за мережею: {place}. Проксі часто збиває визначення; якщо хибно, введіть своє місто.",
+  "Ще не визначено. Введіть своє місто.",
+  "Джерело",
+  "Перейменувати",
+  "Перейменовано на телевізорі",
+  "Назву за замовчуванням відновлено",
+  "Не вдалося перейменувати, повторіть",
+  "Повернути значок за замовчуванням",
+  "Значок за замовчуванням повернуто",
+  "Як на Apple TV: вибраний застосунок лише трохи підіймається.",
+  "Біла рамка навколо вибраного застосунку, добре помітна з іншого кінця кімнати.",
+  "Завжди сьогоднішнє",
+  "Завжди сьогоднішнє фото",
+  "Одне на день",
+  "Щодня змінюється наступним фото",
+  "Фото ще немає. Додайте їх з телефона кнопкою вище.",
+  "Додайте ще одне фото, щоб вибрати «Одне на день».",
+  "Оновлено на телевізорі",
+  "Надсилання: {n}…",
+  "Додано: {n}; останнє стало шпалерами",
+  "Немає придатних фото",
+  "Не вдалося надіслати, повторіть",
+  "Встановлено: {place}",
+  "Не вдалося знайти «{name}»",
+  "Не вдалося задати, повторіть",
+  "Надсилання значка для «{label}»…",
+  "Змінено на телевізорі",
+  "Це зображення використати не можна",
+  "Збирання даних…",
+  "Не вдалося отримати, повторіть",
+  "Скопійовано",
+  "Утримуйте текстове поле, виділіть усе й скопіюйте",
+  "Мова",
+  "Ще не вибрано, тож відповідає шпалерам: аерозйомка зі шпалерами аерозйомки, фото з картинкою, починаючи з неї. Виберіть, щоб закріпити.",
+  "Відео",
+  "Відео повторюються без мережі; якщо вони недоступні, показуються фото.",
+  "Відео для заставки",
+  "Додати відео",
+  "MP4 / MOV; радимо 1080p H.264. До 200 МБ на файл, разом 512 МБ.",
+  "Відео поки немає; доки їх не додано, заставка показує фото.",
+  "Видалити «{name}»?",
+  "Відео: додано {n}, не вдалося {failed}",
+  "Не вдалося зберегти; перевірте формат і вільне місце на ТБ",
+  "Надсилання {n} / {total}…",
+  "На телевізорі вибрано «Системна»: заставка самого телевізора. Виберіть тут, щоб повернути заставку Aerial.",
+  "Головний екран",
+  "Ще",
+  "Поточні шпалери",
+  "Скасувати",
+  "Зберегти",
+  "наприклад, Apple TV у вітальні",
+  "Назвіть джерело; залиште порожнім, щоб повернути назву за замовчуванням.",
+  "Вибрати зображення",
+  "Цей телевізор",
+  "Застосунків: {n}",
+  "Назва папки",
+  "Джерела",
+  "Увімкнене джерело стає першим на головному екрані; натисніть на нього вище, щоб змінити значок або назву.",
+  "Назва, яку показує телевізор; залиште порожнім, щоб повернути «{name}».",
+  "Початкова назва: {name}",
+  "Як на телевізорі: по п'ять у ряд, перший ряд — той, що на полиці телевізора. Натисніть і утримуйте плитку та перетягніть її; натисніть, щоб перейменувати, змінити значок, покласти в папку або приховати.",
+  "Головний екран телевізора ще не готовий; поверніться на нього й спробуйте знову.",
+  "Приховані застосунки",
+  "Прихованих застосунків немає.",
+  "Увімкнено батьківський PIN: прихованих застосунків {n}, повернути їх можна лише на телевізорі з PIN-кодом.",
+  "Показати",
+  "Приховати з головного екрана",
+  "Перемістити в папку",
+  "Нова папка",
+  "Вийняти з папки",
+  "Розформувати папку",
+  "Розформувати «{name}»? Застосунки повернуться на головний екран.",
+  "Натисніть і утримуйте плитку, щоб змінити порядок; натисніть, щоб перейменувати, змінити значок або вийняти з папки.",
+  "Приховано",
+  "Знову на головному екрані",
+  "Переміщено в «{name}»",
+  "Вийнято з папки",
+  "Папку розформовано",
+  "Шпалери",
+  "Шпалери й заставка",
+  "Показати на головному екрані",
+  "Підключений пристрій",
+  "Типово",
+  "Виберіть пристрій — плитка на телевізорі набуде його вигляду й назви; введену вами назву буде замінено.",
+  "Модель"
+ ],
+ "kk": [
+  "Экран қорғаушы",
+  "Экран қорғаушы",
+  "Аэрожиын",
+  "Фотолар",
+  "Сағат",
+  "Фокус стилі",
+  "Жоғары контраст",
+  "Стандартты",
+  "Ауа райы",
+  "Қаланы енгізіңіз, мысалы Алматы",
+  "Орнату",
+  "Фото қосу",
+  "Мәселе туралы хабарлау",
+  "Осы теледидардағы Aerial-де ақау бар немесе Aerial-дің оны қолдағанын қалайсыз: диагностиканы көшіріп, GitHub-тағы құрылғы туралы өтінішке қойыңыз. Онда модель, жүйе нұсқасы, басты экранды басып алу күйі, көздер және Aerial журналы бар, есептік жазбалар, Wi-Fi атаулары, IP мекенжайлар және фотолар жоқ.",
+  "Диагностиканы көрсету",
+  "Көшіру",
+  "GitHub-та хабарлау",
+  "Apple TV аэрожиынын ойнатады, экранда орын көрсетіледі.",
+  "Күннің фотолары мен өз фотоларыңыз кезектеседі.",
+  "Ағымдағы түсқағаз үстіндегі үлкен сағат.",
+  "Аэрожиын",
+  "Басты экранда 10 секунд тұрғаннан кейін түсқағаз Apple TV аэрожиынын ойнатады; ағымдағы кадрда тоқтау үшін кез келген түймені басыңыз",
+  "Күннің фотолары",
+  "Пейзаждық фотография, күн сайын жаңартылады",
+  "Менің фотоларым",
+  "Кіріктірілген",
+  "Тағы",
+  "Теледидар түсқағазы етіп орнатылды",
+  "Жою",
+  "Бұл фотоны жою керек пе?",
+  "Ашық",
+  "Ауыспалы бұлтты",
+  "Бұлтты",
+  "Тұман",
+  "Жаңбыр",
+  "Қар",
+  "Нөсер",
+  "{place} ауа райы көрсетілген.",
+  "Желі бойынша анықтауға оралу",
+  "Қайтадан желі бойынша анықталады",
+  "Желі бойынша анықталды: {place}. Прокси жиі қателестіреді; қате болса, қалаңызды енгізіңіз.",
+  "Әлі анықталған жоқ. Қалаңызды енгізіңіз.",
+  "Көз",
+  "Атын өзгерту",
+  "Теледидарда аты өзгертілді",
+  "Әдепкі атау қайтарылды",
+  "Атын өзгертуге болмады, қайталап көріңіз",
+  "Әдепкі белгішені қайтару",
+  "Әдепкі белгіше қайтарылды",
+  "Apple TV сияқты: таңдалған қолданба тек көтеріледі.",
+  "Таңдалған қолданбаның айналасындағы ақ жақтау, бөлменің арғы шетінен де жақсы көрінеді.",
+  "Әрқашан бүгінгісі",
+  "Әрқашан бүгінгі фото",
+  "Күніне біреуі",
+  "Күн сайын келесі фотоға ауысады",
+  "Фотолар әлі жоқ. Оларды жоғарыдағы түймемен телефоннан қосыңыз.",
+  "«Күніне біреуін» таңдау үшін тағы бір фото қосыңыз.",
+  "Теледидарда жаңартылды",
+  "Жіберілуде: {n}…",
+  "Қосылды: {n}; соңғысы түсқағаз болды",
+  "Жарамды фотолар жоқ",
+  "Жіберуге болмады, қайталап көріңіз",
+  "Орнатылды: {place}",
+  "«{name}» табылмады",
+  "Орнатуға болмады, қайталап көріңіз",
+  "«{label}» үшін белгіше жіберілуде…",
+  "Теледидарда өзгертілді",
+  "Бұл суретті пайдалануға болмайды",
+  "Жиналуда…",
+  "Алуға болмады, қайталап көріңіз",
+  "Көшірілді",
+  "Мәтін өрісін ұзақ басып, барлығын таңдап, көшіріңіз",
+  "Тіл",
+  "Әлі таңдалмаған, сондықтан түсқағазға ілеседі: аэрожиын түсқағазымен аэрожиын, сурет түсқағазымен фотолар, сол суреттен бастап. Бекіту үшін біреуін таңдаңыз.",
+  "Бейне",
+  "Бейнелер интернетсіз қайталанады; ойнатылмаса, фотолар көрсетіледі.",
+  "Экран сақтағыш бейнелері",
+  "Бейне қосу",
+  "MP4 / MOV; 1080p H.264 ұсынылады. Әр файл 200 МБ-қа дейін, барлығы 512 МБ.",
+  "Бейне әлі жоқ; қосылғанша экран сақтағыш фотоларды көрсетеді.",
+  "«{name}» жойылсын ба?",
+  "Бейне: {n} қосылды, {failed} сәтсіз",
+  "Сақтау мүмкін емес; пішімді және теледидардағы бос орынды тексеріңіз",
+  "Жіберілуде {n} / {total}…",
+  "Теледидарда «Жүйелік» таңдалған: теледидардың өз экран сақтағышы. Aerial-дікіне қайту үшін осы жерден таңдаңыз.",
+  "Басты экран",
+  "Тағы",
+  "Ағымдағы түсқағаз",
+  "Бас тарту",
+  "Сақтау",
+  "мысалы, Қонақ бөлмедегі Apple TV",
+  "Көзге атау беріңіз; әдепкі атауды қайтару үшін бос қалдырыңыз.",
+  "Сурет таңдау",
+  "Осы теледидар",
+  "{n} қолданба",
+  "Қалта атауы",
+  "Көздер",
+  "Қосылған көз басты экранда бірінші тұрады; белгішесін не атауын өзгерту үшін оны жоғарыда түртіңіз.",
+  "Теледидар көрсететін атау; «{name}» атауын қайтару үшін бос қалдырыңыз.",
+  "Бастапқы атауы: {name}",
+  "Теледидардағыдай: қатарда бесеуден, бірінші қатар — теледидар сөресіндегі қатар. Плитканы басып ұстап, орнына сүйреңіз; атын, белгішесін өзгерту, қалтаға салу не жасыру үшін түртіңіз.",
+  "Теледидардағы басты экран әлі дайын емес; оған оралып, қайталап көріңіз.",
+  "Жасырылған қолданбалар",
+  "Жасырылған қолданбалар жоқ.",
+  "Ата-ана PIN коды қосулы: {n} жасырылған қолданбаны тек теледидарда PIN кодпен қайтаруға болады.",
+  "Көрсету",
+  "Басты экраннан жасыру",
+  "Қалтаға жылжыту",
+  "Жаңа қалта",
+  "Қалтадан шығару",
+  "Қалтаны тарату",
+  "«{name}» таратылсын ба? Қолданбалар басты экранға оралады.",
+  "Ретін өзгерту үшін плитканы басып ұстаңыз; атын, белгішесін өзгерту не қалтадан шығару үшін түртіңіз.",
+  "Жасырылды",
+  "Басты экранға қайтты",
+  "«{name}» қалтасына жылжытылды",
+  "Қалтадан шығарылды",
+  "Қалта таратылды",
+  "Түсқағаз",
+  "Түсқағаз бен заставка",
+  "Басты экранда көрсету",
+  "Қосылған құрылғы",
+  "Әдепкі",
+  "Құрылғыны таңдасаңыз, теледидардағы плитка оның түрі мен атауын алады; өзіңіз жазған атау ауыстырылады.",
+  "Модель"
+ ]
+};
+const LANGS = Object.keys(TEXTS);
+const LANG = (() => {
+  const asked = new URLSearchParams(location.search).get('lang');
+  let saved = null;
+  try { saved = localStorage.getItem('aerial-lang'); } catch (e) {}
+  const prefs = [asked, saved, ...(navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || ''])];
+  for (const l of prefs) { if (!l) continue; const c = String(l).toLowerCase().split('-')[0]; if (LANGS.includes(c)) return c; }
+  return 'en';
+})();
+const NAMES = { zh: '中文', en: 'English', ru: 'Русский', uk: 'Українська', kk: 'Қазақша' };
+const I18N = {};
+for (const l of LANGS) { I18N[l] = {}; KEYS.forEach((k, i) => I18N[l][k] = TEXTS[l][i]); }
+function t(key, vars) {
+  let s = I18N[LANG][key] || I18N.en[key] || I18N.zh[key] || key;
+  if (vars) for (const k in vars) s = s.split('{' + k + '}').join(vars[k]);
+  return s;
+}
+function initLangSwitch() {
+  const s = $('#lang');
+  for (const l of LANGS) { const o = document.createElement('option'); o.value = l; o.textContent = NAMES[l] || l; s.appendChild(o); }
+  s.value = LANG;
+  $('#langName').textContent = NAMES[LANG] || LANG;
+  s.onchange = () => {
+    try { localStorage.setItem('aerial-lang', s.value); } catch (e) {}
+    const u = new URL(location.href); u.searchParams.set('lang', s.value); location.replace(u.toString());
+  };
+}
+function applyI18n() {
+  document.documentElement.lang = LANG;
+  document.querySelectorAll('[data-i18n]').forEach(e => e.textContent = t(e.dataset.i18n));
+  document.querySelectorAll('[data-i18n-aria-label]').forEach(e => e.setAttribute('aria-label', t(e.dataset.i18nAriaLabel)));
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(e => e.setAttribute('placeholder', t(e.dataset.i18nPlaceholder)));
+}
+
+
+const hints = { aerial: t('hint_aerial'), photos: t('hint_photos'), clock: t('hint_clock'), videos: t('hint_videos'), system: t('hint_system') };
+const groups = [
+  ['live', t('g_live'), t('g_live_sub')],
+  ['daily', t('g_daily'), t('g_daily_sub')],
+  ['photo', t('g_photo'), ''],
+  ['builtin', t('g_builtin'), ''],
+  ['auto', t('g_auto'), '']
+];
+const ICON = {
+  check: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  close: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  chev: '<svg class="chev" width="8" height="14" viewBox="0 0 8 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6 6-6 6"/></svg>',
+  tick: '<svg class="tick" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  plus: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>'
+};
+
+function toast(msg) {
+  const box = $('#toast'); box.textContent = msg; box.classList.add('on');
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => box.classList.remove('on'), 1800);
+}
+
+async function api(path, body) {
+  const opts = body ? { method: 'POST', body: new URLSearchParams(body) } : {};
+  const r = await fetch(base + path, opts);
+  if (!r.ok) throw new Error(r.status);
+  return r.json();
+}
+function take(next) { state = next; stateJson = ''; render(); }
+
+/* Tabs. The tab is kept in the address (#home) and on the phone, and each tab keeps its own scroll. */
+const TABS = ['home', 'looks', 'more'];
+const TITLES = { home: 'tab_home', looks: 'looks_title', more: 'tab_more' };
+// The four tabs of 1.46 and 1.47's first builds.
+const OLD_TABS = { wallpaper: 'looks', screensaver: 'looks' };
+const scrolls = {};
+let tab = null;
+function setTitle() {
+  const L = (state && state.layout) || {};
+  const folder = tab === 'home' && arrView !== null ? (L.home || []).find(e => e.id === arrView) : null;
+  $('#title').textContent = folder ? folder.label : t(TITLES[tab]);
+  $('#homeBack').hidden = !folder;
+}
+function show(next, keepScroll) {
+  next = OLD_TABS[next] || next;
+  if (!TABS.includes(next)) next = 'home';
+  if (tab === next) {
+    if (tab === 'home' && arrView !== null) { arrView = null; renderArrange('back'); return; }
+    if (!keepScroll) window.scrollTo({ top: 0, behavior: scrollBehavior() });
+    return;
+  }
+  if (tab) scrolls[tab] = window.scrollY;
+  tab = next;
+  document.querySelectorAll('section[data-tab]').forEach(s => s.hidden = s.dataset.tab !== tab);
+  document.querySelectorAll('nav button').forEach(b => b.setAttribute('aria-selected', b.dataset.go === tab ? 'true' : 'false'));
+  setTitle();
+  if (tab === 'home') placeShelves();   // measured while the tab shows
+  window.scrollTo(0, scrolls[tab] || 0);
+  try { localStorage.setItem('aerial-tab', tab); } catch (e) {}
+  history.replaceState(null, '', '#' + tab);
+}
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => show(b.dataset.go));
+$('#homeBack').onclick = () => { arrView = null; renderArrange('back'); };
+
+const reducedMotion = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
+const scrollBehavior = () => reducedMotion() ? 'auto' : 'smooth';
+
+/* Bottom sheet. */
+const sheet = $('#sheet');
+function openSheet(build) {
+  const body = $('#sheetBody'); body.replaceChildren(); build(body);
+  clearTimeout(openSheet.timer);
+  sheet.hidden = false;
+  requestAnimationFrame(() => requestAnimationFrame(() => sheet.classList.add('open')));
+}
+function closeSheet() {
+  sheet.classList.remove('open');
+  clearTimeout(openSheet.timer); openSheet.timer = setTimeout(() => sheet.hidden = true, 220);
+}
+$('#scrim').onclick = closeSheet;
+
+/*
+ * Pull the sheet down to close it, as on iOS. A flick is enough (by speed, not distance); a slow
+ * pull closes it past a third of its height, otherwise it springs back. Only from its top, so a
+ * long sheet still scrolls, and only the first finger counts.
+ */
+(() => {
+  const panel = sheet.querySelector('.sheet');
+  let id = null, x0 = 0, y0 = 0, t0 = 0, dy = 0, dragging = false;
+  const touch = e => [...e.changedTouches].find(t => t.identifier === id);
+  panel.addEventListener('touchstart', e => {
+    if (id !== null || e.touches.length !== 1 || panel.scrollTop > 0) return;
+    const t = e.touches[0];
+    id = t.identifier; x0 = t.clientX; y0 = t.clientY; t0 = performance.now(); dy = 0; dragging = false;
+  }, { passive: true });
+  panel.addEventListener('touchmove', e => {
+    const t = touch(e); if (!t) return;
+    const d = t.clientY - y0;
+    if (!dragging) {
+      // A sideways or upward move is not a pull: let it scroll or tap as usual.
+      if (d < 0 || Math.abs(t.clientX - x0) > Math.abs(d)) { id = null; return; }
+      if (d < 8) return;
+      dragging = true; panel.style.transition = 'none';
+    }
+    e.preventDefault();
+    dy = Math.max(0, d - 8);
+    panel.style.transform = `translateY(${dy}px)`;
+  }, { passive: false });
+  const end = e => {
+    if (!touch(e)) return;
+    id = null;
+    if (!dragging) return;
+    dragging = false;
+    const v = dy / Math.max(1, performance.now() - t0);
+    // Back to the stylesheet's transitions: from where the finger left it, on to closed or open.
+    panel.style.transition = ''; panel.style.transform = '';
+    if (v > 0.11 || dy > panel.offsetHeight / 3) closeSheet();
+  };
+  panel.addEventListener('touchend', end);
+  panel.addEventListener('touchcancel', end);
+})();
+function action(list, text, cls, fn) {
+  const b = el('button', 'item center ' + (cls || 'tint'), text); b.onclick = fn; list.appendChild(b); return b;
+}
+
+/* Wallpaper tab. */
+function titleOf(id) {
+  if (id === state.latestDaily) return t('daily_title');
+  if (id === state.rotatePhotos) return t('rotate_title');
+  const w = state.wallpapers.find(w => w.id === id);
+  return w ? w.title : '';
+}
+function card(w) {
+  const b = el('button', 'wp');
+  b.setAttribute('aria-selected', w.id === state.selected ? 'true' : 'false');
+  b.innerHTML = `<div class="pic"><img loading="lazy" alt=""><span class="check">${ICON.check}</span></div><div class="t"></div><div class="c"></div>`;
+  b.querySelector('img').src = `${base}thumb/${encodeURIComponent(w.id)}`;
+  b.querySelector('.t').textContent = w.title;
+  b.querySelector('.c').textContent = w.caption || '';
+  b.onclick = async () => {
+    if (w.id === state.selected) return;
+    try { take(await api('api/wallpaper', { id: w.id })); toast(t('toast_wallpaper')); } catch (e) { toast(t('toast_set_fail')); }
+  };
+  if (w.kind === 'photo') {
+    const d = el('button', 'badge'); d.innerHTML = ICON.close; d.setAttribute('aria-label', t('aria_delete'));
+    d.onclick = e => {
+      e.stopPropagation();
+      openSheet(body => {
+        const pic = el('div', 'pic'); const img = el('img'); img.src = `${base}thumb/${encodeURIComponent(w.id)}`; pic.appendChild(img); body.appendChild(pic);
+        body.appendChild(el('h3', '', t('confirm_delete')));
+        body.appendChild(el('p', 'meta', w.title));
+        const l = el('div', 'list'); body.appendChild(l);
+        action(l, t('aria_delete'), 'danger', async () => { closeSheet(); try { take(await api('api/delete', { id: w.id })); } catch (err) { toast(t('toast_set_fail')); } });
+        const c = el('div', 'list'); body.appendChild(c);
+        action(c, t('cancel'), 'tint', closeSheet).style.fontWeight = '600';
+      });
+    };
+    b.querySelector('.pic').appendChild(d);
+  }
+  return b;
+}
+function renderWallpapers() {
+  $('#heroImg').src = `${base}thumb/${encodeURIComponent(state.selected)}`;
+  $('#heroTitle').textContent = titleOf(state.selected);
+  const root = $('#sections'); root.replaceChildren();
+  for (const [kind, title, sub] of groups) {
+    let list = state.wallpapers.filter(w => w.kind === kind);
+    if (kind === 'daily' && list.length) list = [{ id: state.latestDaily, kind: 'daily', title: t('daily_title'), caption: t('daily_caption') }, ...list];
+    // Two or more photos: one a day, as on the TV (#27, #194).
+    if (kind === 'photo' && list.length > 1) list = [{ id: state.rotatePhotos, kind: 'photos', title: t('rotate_title'), caption: t('rotate_caption') }, ...list];
+    if (!list.length && kind !== 'photo') continue;
+    root.appendChild(el('h2', 'big', title));
+    if (kind === 'photo') {
+      const up = el('label', 'btn add');
+      up.innerHTML = `${ICON.plus}<span id="uploadLabel"></span><input id="file" type="file" accept="image/*" multiple hidden>`;
+      up.querySelector('span').textContent = uploading ? t('sending_n', { n: uploading }) : t('upload_label');
+      if (uploading) up.setAttribute('disabled', '');
+      up.querySelector('input').onchange = uploadPhotos;
+      root.appendChild(up);
+      if (!list.length) { root.appendChild(el('p', 'empty', t('empty_photos'))); continue; }
+    }
+    const g = el('div', 'grid');
+    list.forEach(w => g.appendChild(card(w)));
+    root.appendChild(g);
+    if (sub) root.appendChild(el('p', 'foot', sub));
+    if (kind === 'photo' && list.length === 1) root.appendChild(el('p', 'foot', t('add_second')));
+  }
+}
+let uploading = 0;
+async function uploadPhotos(e) {
+  const files = [...e.target.files]; if (!files.length) return;
+  uploading = files.length; stateJson = ''; render();
+  try {
+    const fd = new FormData(); files.forEach((f, i) => fd.append('photo' + i, f, f.name));
+    const r = await fetch(base + 'api/upload', { method: 'POST', body: fd });
+    if (!r.ok) throw new Error(r.status);
+    const next = await r.json(); uploading = 0; take(next);
+    toast(next.added ? t('toast_added', { n: next.added }) : t('toast_no_photos'));
+  } catch (err) { uploading = 0; stateJson = ''; render(); toast(t('toast_send_fail')); }
+}
+
+/* Screensaver tab. */
+let sendingVideo = '';
+function renderScreensaver() {
+  document.querySelectorAll('#ss [data-mode]').forEach(b => b.setAttribute('aria-checked', b.dataset.mode === state.screensaver ? 'true' : 'false'));
+  $('#ssFoot').textContent = state.screensaverFollows ? t('hint_follows') : state.screensaver === 'system' ? hints.system : '';
+  $('#ssFoot').hidden = !$('#ssFoot').textContent;
+  $('#videos').hidden = state.screensaver !== 'videos';
+  const list = $('#videoList'); list.replaceChildren();
+  const videos = state.videos || [];
+  if (!videos.length) { const row = el('div', 'item'); row.appendChild(el('span', 'txt', t('videos_empty'))).style.color = 'var(--secondary)'; list.appendChild(row); }
+  for (const video of videos) {
+    const row = el('div', 'item');
+    row.appendChild(el('span', 'txt', video.name));
+    const del = el('button', 'link', t('aria_delete')); del.style.color = 'var(--danger)';
+    del.onclick = async () => {
+      if (!confirm(t('confirm_video_delete', { name: video.name }))) return;
+      del.disabled = true;
+      try { take(await api('api/videos/delete', { id: video.id })); } catch (err) { del.disabled = false; toast(t('toast_video_bad')); }
+    };
+    row.appendChild(del); list.appendChild(row);
+  }
+  $('#videoUploadLabel').textContent = sendingVideo || t('videos_upload');
+}
+document.querySelectorAll('#ss [data-mode]').forEach(b => b.onclick = async () => {
+  if (b.dataset.mode === state.screensaver && !state.screensaverFollows) return;
+  try { take(await api('api/screensaver', { mode: b.dataset.mode })); toast(t('toast_tv_updated')); } catch (e) { toast(t('toast_set_fail')); }
+});
+$('#videoFile').onchange = async e => {
+  const input = e.target; const files = [...input.files]; if (!files.length) return;
+  const btn = $('#videoUploadBtn');
+  input.disabled = true; btn.setAttribute('disabled', '');
+  let added = 0;
+  for (const [i, file] of files.entries()) {
+    sendingVideo = t('sending_video', { n: i + 1, total: files.length }); $('#videoUploadLabel').textContent = sendingVideo;
+    if (!file.size || file.size > 200 * 1024 * 1024) continue;
+    try {
+      const fd = new FormData(); fd.append('video', file, file.name);
+      const r = await fetch(base + 'api/videos/upload', { method: 'POST', body: fd });
+      if (!r.ok) throw new Error(r.status);
+      const next = await r.json(); if (next.saved) added++; take(next);
+    } catch (err) { /* Keep going: a failed film should not discard the rest of the batch. */ }
+  }
+  sendingVideo = ''; input.disabled = false; input.value = ''; btn.removeAttribute('disabled'); stateJson = ''; render();
+  toast(t('toast_videos_added', { n: added, failed: files.length - added }));
+};
+
+/* More tab: focus style and weather. */
+const weatherNames = { clear: t('wx_clear'), partlycloudy: t('wx_partlycloudy'), cloudy: t('wx_cloudy'), fog: t('wx_fog'), rain: t('wx_rain'), snow: t('wx_snow'), thunder: t('wx_thunder') };
+function renderMore() {
+  document.querySelectorAll('#focus [data-style]').forEach(b => b.setAttribute('aria-checked', b.dataset.style === state.focusStyle ? 'true' : 'false'));
+  const w = state.weather || {};
+  $('#wxNow').textContent = w.celsius !== undefined ? `${w.celsius}° ${weatherNames[w.kind] || ''}` : '—';
+  $('#wxPlace').textContent = w.place || '';
+  const hint = $('#wxHint'); hint.replaceChildren();
+  if (w.chosen) {
+    hint.append(t('wx_chosen', { place: w.place }) + ' ');
+    const b = el('button', 'link', t('wx_auto_btn'));
+    b.onclick = async () => { try { take(await api('api/weather/auto', {})); toast(t('toast_auto')); } catch (e) { toast(t('toast_set_fail')); } };
+    hint.append(b);
+  } else hint.textContent = w.place ? t('wx_guessed', { place: w.place }) : t('wx_none');
+}
+function renderInputs() {
+  const inputs = state.inputs || [];
+  $('#inputsBox').hidden = !inputs.length || arrView !== null;
+  const list = $('#inputs'); list.replaceChildren();
+  for (const s of inputs) {
+    const row = el('label', 'item');
+    const txt = el('span', 'txt', s.name || s.port);
+    const sub = [s.name ? s.port : '', s.device].filter(Boolean).join(' · ');
+    if (sub) txt.appendChild(el('span', 'sub', sub));
+    const sw = el('input', 'switch'); sw.type = 'checkbox'; sw.checked = !!s.pinned; sw.setAttribute('aria-label', s.name || s.port);
+    sw.onchange = async () => {
+      const on = sw.checked; sw.disabled = true;
+      try {
+        const next = await api('api/source/pin', { id: s.id, pinned: on ? '1' : '0' });
+        if (!next.saved) throw new Error('not saved');
+        take(next); toast(t(on ? 'toast_pinned' : 'toast_unpinned'));
+      } catch (e) { sw.checked = !on; sw.disabled = false; toast(t('toast_set_fail')); }
+    };
+    row.append(txt, sw); list.appendChild(row);
+  }
+}
+document.querySelectorAll('#focus [data-style]').forEach(b => b.onclick = async () => {
+  if (b.dataset.style === state.focusStyle) return;
+  try { take(await api('api/focus', { style: b.dataset.style })); toast(t('toast_tv_updated')); } catch (e) { toast(t('toast_set_fail')); }
+});
+$('#city').oninput = () => $('#cityBtn').disabled = !$('#city').value.trim();
+$('#cityForm').onsubmit = async e => {
+  e.preventDefault();
+  const name = $('#city').value.trim(); if (!name) return;
+  const btn = $('#cityBtn'); btn.disabled = true; $('#city').blur();
+  try {
+    const next = await api('api/weather/city', { name }); take(next);
+    toast(next.found ? t('toast_city_set', { place: next.weather.place }) : t('toast_city_nf', { name }));
+    if (next.found) $('#city').value = '';
+  } catch (err) { toast(t('toast_set_fail')); }
+  btn.disabled = !$('#city').value.trim();
+};
+
+let iconFor = null;
+$('#iconFile').onchange = async e => {
+  const f = e.target.files[0]; const a = iconFor; e.target.value = '';
+  if (!f || !a) return;
+  toast(t('toast_sending_icon', { label: a.label }));
+  try {
+    const fd = new FormData(); fd.append('app', a.key); fd.append('picture', f, f.name);
+    const r = await fetch(base + 'api/icon', { method: 'POST', body: fd });
+    if (!r.ok) throw new Error(r.status);
+    const next = await r.json(); take(next);
+    toast(t(next.saved ? 'toast_icon_set' : 'toast_icon_bad'));
+  } catch (err) { toast(t('toast_send_fail')); }
+};
+
+/* More tab: diagnostics. */
+$('#diagBtn').onclick = async () => {
+  const b = $('#diagBtn'); b.disabled = true; b.textContent = t('diag_collecting');
+  try {
+    const r = await fetch(base + 'api/diagnostics');
+    if (!r.ok) throw new Error(r.status);
+    $('#diag').textContent = await r.text();
+    $('#diag').hidden = false; $('#diagActions').hidden = false; b.parentElement.hidden = true;
+    // Bring the Copy button out from under the tab bar.
+    // (Safari ignores scroll-margin in scrollIntoView, so measured by hand.)
+    const over = $('#diagActions').getBoundingClientRect().bottom - (innerHeight - $('nav').offsetHeight - 16);
+    if (over > 0) window.scrollBy({ top: over, behavior: scrollBehavior() });
+  } catch (e) { toast(t('toast_diag_fail')); b.textContent = t('diag_show'); }
+  b.disabled = false;
+};
+// The page is plain HTTP on the LAN, where browsers offer no navigator.clipboard. So the text is
+// copied from a field off screen: 16px so iOS does not zoom, and the scroll put back after, since
+// focusing it can still move the page.
+$('#diagCopy').onclick = () => {
+  const text = $('#diag').textContent, x = window.scrollX, y = window.scrollY;
+  const tmp = document.createElement('textarea');
+  tmp.value = text; tmp.setAttribute('aria-hidden', 'true');
+  tmp.style.cssText = 'position:fixed;top:0;left:-9999px;width:1px;height:1px;opacity:0;font-size:16px';
+  document.body.appendChild(tmp);
+  let ok = false;
+  try {
+    tmp.focus({ preventScroll: true }); tmp.select(); tmp.setSelectionRange(0, text.length);
+    ok = document.execCommand('copy');
+  } catch (e) {}
+  tmp.remove(); window.scrollTo(x, y);
+  if (!ok) {
+    // Select the text in the box so the system's Copy is one tap away.
+    const sel = window.getSelection(); sel.removeAllRanges();
+    const range = document.createRange(); range.selectNodeContents($('#diag')); sel.addRange(range);
+  }
+  toast(t(ok ? 'toast_copied' : 'toast_copy_manual'));
+};
+
+/*
+ * The Home Screen tab: the TV's tiles in a grid as on the TV, dragged into place. A tap on a tile
+ * opens one sheet with all it can do (name, icon, folder, hide); a tap on a folder opens it here.
+ */
+let arrView = null;            // null = Home, else the open folder's id
+let arrDragging = false;       // while a tile is held, nothing re-renders under it
+let arrPending = false;        // a state that arrived mid-drag, rendered on drop
+function tileImg(e) { const i = el('img', 'thumb'); i.alt = ''; i.loading = 'lazy'; i.src = `${base}tile/${encodeURIComponent(e.key)}?v=${e.stamp}`; return i; }
+
+async function lay(params, done) {
+  try {
+    const next = await api('api/layout', params);
+    if (!next.saved) throw new Error('not saved');
+    take(next); if (done) done(next);
+  } catch (e) { toast(t('toast_set_fail')); stateJson = ''; render(); }
+}
+function folderNameOf(next, key) {
+  const L = next.layout || {}; const f = Object.keys(L.folders || {}).find(id => (L.folders[id] || []).some(a => a.key === key));
+  const tile = f && (L.home || []).find(e => e.id === f); return tile ? tile.label : '';
+}
+
+/* push: true going into a folder, 'back' coming out of one, false for no motion. */
+function renderArrange(push) {
+  if (arrDragging) { arrPending = true; return; }
+  const L = state.layout || { home: [], folders: {}, hidden: [] };
+  if (arrView !== null && !(L.folders || {})[arrView]) arrView = null;   // ungrouped, or emptied
+  const folderTile = arrView !== null ? L.home.find(e => e.id === arrView) : null;
+  const view = el('div', 'view' + (push === 'back' ? ' pop' : push ? ' push' : ''));
+  if (!L.ready) view.appendChild(el('p', 'foot', t('arrange_unready'))).style.marginTop = '20px';
+  if (folderTile) buildFolderView(view, folderTile, L.folders[arrView] || []);
+  else buildHomeView(view, L);
+  $('#homeBody').replaceChildren(view);
+  $('#inputsBox').hidden = !(state.inputs || []).length || !!folderTile;
+  if (tab) setTitle();
+  placeShelves();
+  if (push) window.scrollTo(0, 0);
+}
+
+function buildHomeView(view, L) {
+  const grid = tileGrid(L.home, true); grid.style.marginTop = '14px'; view.appendChild(grid);
+  sortableGrid(grid, L.home.map(e => e.key),
+    (key, target) => lay({ op: 'move', key, target }),
+    i => { const e = L.home[i]; e.kind === 'folder' ? (arrView = e.id, renderArrange(true)) : tileSheet(e, null); });
+  view.appendChild(el('p', 'foot', t('arrange_hint')));
+
+  view.appendChild(el('h2', '', t('hidden_h')));
+  if (L.locked && L.hiddenCount) { view.appendChild(el('p', 'foot', t('hidden_locked', { n: L.hiddenCount }))); return; }
+  if (!L.hidden.length) { view.appendChild(el('p', 'foot', t('hidden_none'))); return; }
+  const hl = el('div', 'list'); view.appendChild(hl);
+  for (const e of L.hidden) {
+    const row = el('div', 'item arow'); row.setAttribute('role', 'button'); row.tabIndex = 0;
+    row.append(tileImg(e), el('span', 'txt', e.label));
+    const b = el('button', 'link act', t('show_app'));
+    b.onclick = ev => { ev.stopPropagation(); b.disabled = true; lay({ op: 'unhide', key: e.key }, () => toast(t('toast_shown'))); };
+    row.onclick = () => tileSheet(e, null, true);
+    row.appendChild(b); hl.appendChild(row);
+  }
+}
+
+function buildFolderView(view, folder, apps) {
+  // The folder's name, edited in place.
+  view.appendChild(el('h2', '', t('folder_ph')));
+  const nl = el('div', 'list'); view.appendChild(nl);
+  const form = el('form', 'item field');
+  const input = el('input'); input.type = 'text'; input.value = folder.label; input.maxLength = 24; input.placeholder = t('folder_ph');
+  input.setAttribute('enterkeyhint', 'done'); input.autocomplete = 'off'; input.setAttribute('aria-label', t('folder_ph'));
+  const save = el('button', 'link', t('save'));
+  const sync = () => save.disabled = !input.value.trim() || input.value.trim() === folder.label;
+  input.oninput = sync; sync(); form.append(input, save); nl.appendChild(form);
+  form.onsubmit = async e => {
+    e.preventDefault(); const name = input.value.trim(); if (!name) return; input.blur();
+    try { const next = await api('api/folder/name', { id: folder.id, name }); take(next); toast(t(next.saved ? 'toast_folder_renamed' : 'toast_rename_fail')); }
+    catch (err) { toast(t('toast_rename_fail')); }
+  };
+
+  view.appendChild(el('h2', '', t('folder_count', { n: apps.length })));
+  const grid = tileGrid(apps, false); view.appendChild(grid);
+  sortableGrid(grid, apps.map(e => e.key), (key, target) => lay({ op: 'movein', key, target }), i => tileSheet(apps[i], folder));
+  view.appendChild(el('p', 'foot', t('folder_hint')));
+
+  const al = el('div', 'list'); al.style.marginTop = '28px'; view.appendChild(al);
+  action(al, t('ungroup'), 'danger', () => openSheet(body => {
+    body.appendChild(el('h3', '', t('ungroup_confirm', { name: folder.label }))).style.marginBottom = '16px';
+    const l = el('div', 'list'); body.appendChild(l);
+    action(l, t('ungroup'), 'danger', () => { closeSheet(); lay({ op: 'ungroup', folder: folder.id }, () => toast(t('toast_ungrouped'))); });
+    const c = el('div', 'list'); body.appendChild(c);
+    action(c, t('cancel'), 'tint', closeSheet).style.fontWeight = '600';
+  }));
+}
+
+function tileGrid(entries, shelf) {
+  const grid = el('div', 'agrid');
+  if (shelf && entries.length) grid.appendChild(el('div', 'shelf'));
+  for (const e of entries) {
+    const tile = el('div', 'atile'); tile.dataset.key = e.key; tile.setAttribute('role', 'button'); tile.tabIndex = 0;
+    tile.setAttribute('aria-label', e.label);
+    const pic = el('div', 'tpic'); const img = el('img'); img.alt = ''; img.draggable = false; img.loading = 'lazy';
+    img.src = `${base}tile/${encodeURIComponent(e.key)}?v=${e.stamp}`; pic.appendChild(img);
+    tile.append(pic, el('span', 'n', e.label));
+    grid.appendChild(tile);
+  }
+  return grid;
+}
+/* The shelf sits behind Home's first row, as the glass plate does on the TV. */
+function placeShelves() {
+  document.querySelectorAll('#homeBody .agrid').forEach(g => {
+    const shelf = g.querySelector('.shelf'); if (!shelf) return;
+    const first = [...g.querySelectorAll('.atile')].slice(0, 5);
+    const bottom = Math.max(...first.map(t => t.offsetTop + t.offsetHeight));
+    shelf.style.height = (bottom + 6 - 4) + 'px';
+  });
+}
+addEventListener('resize', placeShelves);
+
+/*
+ * Everything one tile can do, in one sheet: its name, its picture, its folder, whether Home shows it.
+ * An input's name goes to the input (as from its menu on the TV); an app's to the app.
+ */
+function tileSheet(e, inFolder, hidden) {
+  const a = (state.apps || []).find(x => x.key === e.key) || { key: e.key, label: e.label, default: e.label, name: '' };
+  const L = state.layout || {};
+  const folders = (L.home || []).filter(x => x.kind === 'folder' && (!inFolder || x.id !== inFolder.id));
+  openSheet(body => {
+    const pic = el('div', 'pic'); const img = el('img'); img.src = `${base}tile/${encodeURIComponent(e.key)}?v=${e.stamp}`; pic.appendChild(img); body.appendChild(pic);
+    body.appendChild(el('h3', '', e.label));
+    const meta = [a.source ? (a.label === a.port ? t('tag_source') : a.port) : a.name ? t('was_named', { name: a.default }) : '', inFolder ? inFolder.label : ''].filter(Boolean).join(' · ');
+    body.appendChild(el('p', 'meta', meta));
+
+    // Name.
+    const nl = el('div', 'list'); body.appendChild(nl);
+    const f = el('form', 'item field');
+    const input = el('input'); input.type = 'text'; input.value = a.name || ''; input.maxLength = 24;
+    input.placeholder = a.source ? t('name_ph') : (a.default || a.label);
+    input.setAttribute('enterkeyhint', 'done'); input.autocomplete = 'off'; input.setAttribute('aria-label', t('aria_rename'));
+    const save = el('button', 'link', t('save'));
+    const sync = () => save.disabled = input.value.trim() === (a.name || '');
+    input.oninput = sync; sync();
+    f.append(input, save); nl.appendChild(f);
+    f.onsubmit = async ev => {
+      ev.preventDefault(); const name = input.value; closeSheet();
+      try {
+        const next = await api('api/app/name', { app: a.key, name });
+        if (!next.saved) throw new Error('not saved');
+        take(next); toast(t(name.trim() ? 'toast_renamed' : 'toast_name_reset'));
+      } catch (err) { toast(t('toast_rename_fail')); }
+    };
+    body.appendChild(el('p', 'foot', a.source ? t('rename_hint') : t('rename_hint_app', { name: a.default || a.label }))).style.marginBottom = '12px';
+
+    // Picture: for an input, the device plugged into it first (as in its menu on the TV).
+    const il = el('div', 'list'); body.appendChild(il);
+    if (a.source) {
+      const cur = (state.devices || []).find(d => d.key === a.device);
+      const b = el('button', 'item');
+      b.append(el('span', 'txt', t('source_device')), el('span', 'val', cur ? cur.label : t('source_plain')));
+      b.insertAdjacentHTML('beforeend', ICON.chev);
+      b.onclick = () => deviceChooser(a, e);
+      il.appendChild(b);
+    }
+    // The picker opens from this tap, so iOS treats it as the user's own gesture.
+    action(il, t('change_icon'), 'tint', () => { iconFor = a; $('#iconFile').click(); closeSheet(); });
+    if (a.custom) action(il, t('aria_reset_icon'), 'tint', async () => {
+      closeSheet();
+      try { take(await api('api/icon/reset', { app: a.key })); toast(t('toast_icon_reset')); } catch (err) { toast(t('toast_set_fail')); }
+    });
+
+    // Place on Home.
+    const pl = el('div', 'list'); pl.style.marginTop = '12px'; body.appendChild(pl);
+    if (hidden) {
+      action(pl, t('show_on_home'), 'tint', () => { closeSheet(); lay({ op: 'unhide', key: e.key }, () => toast(t('toast_shown'))); });
+    } else {
+      action(pl, t('to_folder'), 'tint', () => folderChooser(e, folders));
+      if (inFolder) action(pl, t('out_of_folder'), 'tint', () => { closeSheet(); lay({ op: 'unfolder', key: e.key }, () => toast(t('toast_out_folder'))); });
+      action(pl, t('hide_app'), 'danger', () => { closeSheet(); lay({ op: 'hide', key: e.key }, () => toast(t('toast_hidden'))); });
+    }
+    const c = el('div', 'list'); c.style.marginTop = '12px'; body.appendChild(c);
+    action(c, t('cancel'), 'tint', closeSheet).style.fontWeight = '600';
+  });
+}
+/* The device on an input: its mark and colours on the tile, its name on the caption (as on the TV). */
+function deviceChooser(a, e) {
+  const body = $('#sheetBody'); body.replaceChildren();
+  body.appendChild(el('h3', '', t('source_device'))); body.appendChild(el('p', 'meta', a.port || e.label));
+  const l = el('div', 'list'); body.appendChild(l);
+  const choices = [{ key: '', label: t('source_plain'), sub: a.port }].concat(state.devices || []);
+  for (const d of choices) {
+    const b = el('button', 'item'); b.setAttribute('role', 'radio');
+    const txt = el('span', 'txt', d.label); if (d.sub) txt.appendChild(el('span', 'sub', d.sub));
+    b.appendChild(txt); b.insertAdjacentHTML('beforeend', ICON.tick);
+    b.setAttribute('aria-checked', (a.device || '') === d.key ? 'true' : 'false');
+    b.onclick = async () => {
+      closeSheet();
+      if ((a.device || '') === d.key) return;
+      try {
+        const next = await api('api/source/device', { app: a.key, device: d.key });
+        if (!next.saved) throw new Error('not saved');
+        take(next); toast(t('toast_tv_updated'));
+      } catch (err) { toast(t('toast_set_fail')); }
+    };
+    l.appendChild(b);
+  }
+  body.appendChild(el('p', 'foot', t('source_device_hint'))).style.marginBottom = '12px';
+  const c = el('div', 'list'); body.appendChild(c);
+  action(c, t('cancel'), 'tint', closeSheet).style.fontWeight = '600';
+}
+function folderChooser(e, folders) {
+  const body = $('#sheetBody'); body.replaceChildren();
+  body.appendChild(el('h3', '', t('to_folder'))); body.appendChild(el('p', 'meta', e.label));
+  const l = el('div', 'list'); body.appendChild(l);
+  const go = id => { closeSheet(); lay({ op: 'folder', key: e.key, folder: id || '' }, next => toast(t('toast_in_folder', { name: folderNameOf(next, e.key) }))); };
+  for (const f of folders) {
+    const b = el('button', 'item'); b.append(tileImg(f), el('span', 'txt', f.label)); b.onclick = () => go(f.id); l.appendChild(b);
+  }
+  const n = el('button', 'item tint'); n.innerHTML = ICON.plus; n.appendChild(el('span', 'txt', t('new_folder'))); n.onclick = () => go(''); l.appendChild(n);
+  const c = el('div', 'list'); body.appendChild(c);
+  action(c, t('cancel'), 'tint', closeSheet).style.fontWeight = '600';
+}
+
+/*
+ * Drag a tile to its place, as moving one on the TV. A touch picks the tile up after a short hold
+ * (a quick swipe still scrolls the page); a mouse picks it up as soon as it moves. The tile follows
+ * the finger with no easing (it is under the finger), the others slide to their new slots on an
+ * interruptible transition, and near the top or bottom the page scrolls. On release the tile settles
+ * into its slot and the grid takes the new order at once; the TV is told after. A tap is a tap.
+ * A second finger is ignored while one tile is held.
+ */
+/*
+ * A tap opens its sheet on the lift, and the phone's browser sends the tap's click a moment later,
+ * hit-tested again: it landed on the scrim that had just appeared and closed the sheet at once, or
+ * on one of the sheet's buttons (issue #542, Chrome, WeChat and Samsung Internet on Android).
+ */
+function swallowNextClick() {
+  const until = performance.now() + 600;
+  const h = e => {
+    document.removeEventListener('click', h, true);
+    if (performance.now() < until) { e.preventDefault(); e.stopPropagation(); }
+  };
+  document.addEventListener('click', h, true);
+  setTimeout(() => document.removeEventListener('click', h, true), 700);
+}
+
+function sortableGrid(grid, keys, onMove, onTap) {
+  grid.addEventListener('pointerdown', ev => {
+    const tile = ev.target.closest('.atile'); if (!tile || arrDragging || ev.button > 0) return;
+    const tiles = [...grid.querySelectorAll('.atile')]; const from = tiles.indexOf(tile);
+    const pid = ev.pointerId, touch = ev.pointerType !== 'mouse';
+    const sx = ev.clientX, sy = ev.clientY;
+    let x = sx, y = sy, lifted = false, ended = false, timer = 0, raf = 0, to = from;
+    let cells = [], g0 = null;
+    const blockScroll = e => { if (lifted) e.preventDefault(); };
+
+    const lift = () => {
+      lifted = true; arrDragging = true;
+      try { tile.setPointerCapture(pid); } catch (e) {}
+      document.addEventListener('touchmove', blockScroll, { passive: false });
+      cells = tiles.map(t => ({ x: t.offsetLeft, y: t.offsetTop, w: t.offsetWidth, h: t.offsetHeight }));
+      const r = grid.getBoundingClientRect(); g0 = { x: sx - r.left, y: sy - r.top };
+      grid.classList.add('sorting'); tile.classList.add('lift');
+      try { navigator.vibrate && navigator.vibrate(10); } catch (e) {}
+      raf = requestAnimationFrame(edge);
+    };
+    const slotAt = (px, py) => {
+      let best = from, bd = Infinity;
+      cells.forEach((c, i) => { const d = (c.x + c.w / 2 - px) ** 2 + (c.y + c.h / 2 - py) ** 2; if (d < bd) { bd = d; best = i; } });
+      return best;
+    };
+    const place = () => {
+      const r = grid.getBoundingClientRect(); const gx = x - r.left, gy = y - r.top;
+      tile.style.transform = `translate(${gx - g0.x}px, ${gy - g0.y}px)`;
+      const next = slotAt(cells[from].x + cells[from].w / 2 + gx - g0.x, cells[from].y + cells[from].h / 2 + gy - g0.y);
+      if (next === to) return;
+      to = next;
+      tiles.forEach((t, j) => {
+        if (t === tile) return;
+        const k = from < to && j > from && j <= to ? j - 1 : from > to && j >= to && j < from ? j + 1 : j;
+        t.style.transform = k === j ? '' : `translate(${cells[k].x - cells[j].x}px, ${cells[k].y - cells[j].y}px)`;
+      });
+    };
+    const edge = () => {
+      // The page scrolls; the tab bar covers its bottom.
+      const top = 0, bottom = document.querySelector('nav').getBoundingClientRect().top, zone = 70;
+      const v = y < top + zone ? -(top + zone - y) / 4 : y > bottom - zone ? (y - (bottom - zone)) / 4 : 0;
+      if (v) { window.scrollBy(0, Math.max(-16, Math.min(16, v))); place(); }
+      raf = requestAnimationFrame(edge);
+    };
+    const finish = () => {
+      document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); document.removeEventListener('pointercancel', cancel);
+      document.removeEventListener('touchmove', blockScroll);
+      clearTimeout(timer); cancelAnimationFrame(raf);
+    };
+    const drop = () => {
+      // Settle into the slot, then take the new order without motion.
+      tile.style.transition = reducedMotion() ? 'none' : 'transform .2s var(--ease-out)';
+      tile.style.transform = `translate(${cells[to].x - cells[from].x}px, ${cells[to].y - cells[from].y}px)`;
+      tile.classList.remove('lift');
+      setTimeout(() => {
+        grid.classList.remove('sorting');
+        tiles.forEach(t => { t.style.transition = 'none'; t.style.transform = ''; });
+        if (to !== from) grid.insertBefore(tile, to > from ? tiles[to].nextSibling : tiles[to]);
+        void grid.offsetHeight; tiles.forEach(t => t.style.transition = '');
+        arrDragging = false;
+        if (to !== from) onMove(keys[from], keys[to]);
+        else if (arrPending) { arrPending = false; renderArrange(false); }
+      }, 200);
+    };
+    const move = e => {
+      if (e.pointerId !== pid) return;
+      x = e.clientX; y = e.clientY;
+      const far = Math.hypot(x - sx, y - sy);
+      if (!lifted) {
+        if (touch && far > 8) { ended = true; finish(); }   // a swipe: the page scrolls
+        else if (!touch && far > 5) { lift(); place(); }
+        return;
+      }
+      place();
+    };
+    const up = e => {
+      if (e.pointerId !== pid || ended) return;
+      ended = true; finish();
+      if (lifted) drop(); else { swallowNextClick(); onTap(from); }
+    };
+    const cancel = e => {
+      if (e.pointerId !== pid || ended) return;
+      ended = true; finish();
+      if (lifted) drop();
+    };
+    if (touch) timer = setTimeout(() => { if (!ended) { lift(); place(); } }, 260);
+    document.addEventListener('pointermove', move); document.addEventListener('pointerup', up); document.addEventListener('pointercancel', cancel);
+  });
+  // Keyboard: Enter on a focused tile is a tap.
+  grid.addEventListener('keydown', e => {
+    const tile = e.target.closest('.atile'); if (!tile || (e.key !== 'Enter' && e.key !== ' ')) return;
+    e.preventDefault(); onTap([...grid.querySelectorAll('.atile')].indexOf(tile));
+  });
+}
+
+function render() {
+  if (!state) return;
+  // The page polls; skip the rebuild when nothing changed, so pictures do not flicker and taps are not lost.
+  const json = JSON.stringify(state);
+  if (json === stateJson) return;
+  stateJson = json;
+  renderWallpapers();
+  renderScreensaver();
+  renderMore();
+  renderInputs();
+  renderArrange(false);
+}
+
+initLangSwitch();
+applyI18n();
+show((location.hash || '').slice(1) || (() => { try { return localStorage.getItem('aerial-tab'); } catch (e) { return null; } })(), true);
+async function refresh() { try { state = await api('api/state'); render(); } catch (e) {} }
+refresh();
+setInterval(() => { if (!document.hidden && sheet.hidden && !arrDragging) refresh(); }, 6000);
+</script>
+</body>
+</html>

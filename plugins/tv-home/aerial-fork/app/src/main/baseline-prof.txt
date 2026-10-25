@@ -1,0 +1,19 @@
+# Baseline Profile: what ART compiles ahead of time when Aerial is installed.
+#
+# Only tools/install.sh runs `cmd package compile -m speed`. Updating from Control Center, pushing
+# the APK from a phone (TCL 多屏互动) or installing from a USB drive goes through the system
+# installer, which compiles just what this profile names (Android 7+; Android 5 and 6 compile
+# everything at install anyway). Without it Home ran interpreted and JIT-compiled until the
+# system's idle-and-charging background job got round to it, if ever: a TV is rarely "idle".
+#
+# Home, Control Center and the panels are all Aerial's own code on top of Compose, and all of it
+# runs within seconds of a start, so the whole of both is marked hot.
+HSPLapp/orchard/tv/**->**(**)**
+Lapp/orchard/tv/**;
+HSPLandroidx/compose/**->**(**)**
+Landroidx/compose/**;
+HSPLandroidx/activity/**->**(**)**
+HSPLandroidx/lifecycle/**->**(**)**
+HSPLkotlinx/coroutines/**->**(**)**
+Lkotlinx/coroutines/**;
+HSPLkotlin/**->**(**)**
