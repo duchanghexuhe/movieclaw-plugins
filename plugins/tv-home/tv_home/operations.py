@@ -342,7 +342,7 @@ def run_home(link, record: "dict | None", shell_apk_bytes: "bytes | None" = None
     aerial 的 APK 在 install 时下载，这里只要求已安装（shell_apk_bytes 为 None）。
     """
     shell_pkg, shell_activity = SHELL_PKGS[shell]
-    shell_name = "「MovieClaw 桌面」" if shell == "movieclaw" else "aerial-tv 桌面"
+    shell_name = "「MovieClaw 桌面」" if shell == "movieclaw" else "「MovieClaw 桌面」aerial 版"
     snap = snapshot(link, link.host)
     record = merge_record(record, snap)
     serial = snap["serial"]

@@ -1,2 +1,3 @@
 .gradle/
 configuration-cache-report.html
+build/

@@ -38,7 +38,9 @@ GUIDE = """先调本接口（guide）读操作说明，再按顺序调：connect
 - 设备上的一切改动只通过本插件的接口；不要用 bash 自己连电视，不要拼 pm / settings / am 命令。
 - 只问用户三类事：遥控器上的手动步骤、看屏幕确认、要不要继续。
 - 桌面壳有两种：默认装自带的极简壳「MovieClaw 桌面」；用户想要 Apple TV 风格就 install 和 home 都带 shell=aerial
-  （装 aerial-tv，MIT 许可，含壁纸与航拍屏保，走它的 GitHub 正式版并校验哈希）。两种壳的换桌面与还原流程完全一样。
+  （装「MovieClaw 桌面」aerial 版——基于 aerial-tv 的 fork，MIT，随插件包，含壁纸与航拍屏保，MovieClaw 预置第一格）。
+  两种壳的换桌面与还原流程完全一样。注意：电视上若装过上游原版 aerial（签名不同），换 fork 前要先调 restore 卸掉它，
+  install 报「签名不一致」时按 say 引导用户先还原。
 - connect 返回 waiting_auth 时：电视上弹了「允许调试吗」，请用户点允许并勾选「始终允许」，点完再调一次 connect。
 - probe 的 level 是 B（或 C）时只换桌面、不去臃肿；把 level_note 告诉用户。
 - MovieClaw 没装时先调 install（可用 main_apk_url 给正式版地址，或不传参让插件取最新正式版；装不了就说明原因）。
