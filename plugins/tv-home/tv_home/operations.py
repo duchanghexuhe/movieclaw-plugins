@@ -1,0 +1,397 @@
+"""电视桌面的设备操作：probe / install / home / verify / restore / close 的业务逻辑。
+
+这一层是同步的纯逻辑：拿一个 ``AdbLink``（或单测里的假链接）干活，返回普通字典。
+业务失败（比如校验不过、判为 C 级）用 ``ok=False`` 的结果表达，不抛异常；
+连接与命令失败（AdbError）才会抛出去。异步、文件与 HTTP 都在 routes.py。
+
+换桌面的顺序与防护规则沿用 cleanyourtv（MIT）踩出来的做法，规格见主仓库
+``docs/design/androidtv-home.md`` §8.4–§8.6。
+"""
+
+import re
+import tempfile
+import time
+import os
+
+from .records import merge_record, rescue_text
+
+SHELL_PKG = "io.movieclaw.androidtv.home"
+SHELL_ACTIVITY = SHELL_PKG + "/.HomeActivity"
+MAIN_PKG = "io.movieclaw.androidtv"
+
+MAIN_ACTION = "android.intent.action.MAIN"
+HOME_CATEGORY = "android.intent.category.HOME"
+
+REMOTE_SHELL_APK = "/data/local/tmp/movieclaw-home.apk"
+REMOTE_MAIN_APK = "/data/local/tmp/movieclaw-app.apk"
+
+# 「能当家的桌面」之外的占位：设置应用的 FallbackHome、设置向导完成后的组件不算
+# （设计稿 §8.4 第 5 步）。设置向导（setupwraith）在真机上可能接管，P1 没有机型记录时一律拒绝。
+NON_VIABLE_CLASS_MARKS = ("FallbackHome",)
+NON_VIABLE_PKGS = {"com.android.settings"}
+
+COMPONENT_RE = re.compile(r"([A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)+)/([A-Za-z0-9_.$]+)")
+PRIORITY_RE = re.compile(r"priority=(-?\d+)", re.IGNORECASE)
+PROP_RE = re.compile(r"^\[(?P<key>[^\]]+)\]: \[(?P<value>.*)\]$", re.MULTILINE)
+
+# 注入主页键后等界面切过去再读前台；单测把它改成 0
+SLEEP_AFTER_HOME_KEY = 1.5
+
+
+def _full_component(pkg: str, cls: str) -> str:
+    return f"{pkg}/{pkg + cls if cls.startswith('.') else cls}"
+
+
+def parse_props(text: str) -> dict:
+    """解析 ``getprop`` 全量输出（``[键]: [值]`` 一行一个）。"""
+    return {m.group("key"): m.group("value") for m in PROP_RE.finditer(text)}
+
+
+def parse_candidates(text: str) -> list:
+    """解析 ``cmd package query-activities`` 的输出。
+
+    每个候选是一行 ``包名/类名``，优先级取它前面最近的 ``priority=N`` 标记；
+    解析不出优先级时记 None（按 0 处理，但保留标记）。
+    """
+    out = []
+    pending = None
+    for line in text.splitlines():
+        pm = PRIORITY_RE.search(line)
+        if pm:
+            pending = int(pm.group(1))
+        for pkg, cls in COMPONENT_RE.findall(line):
+            out.append({"component": _full_component(pkg, cls), "priority": pending})
+            pending = None
+    return out
+
+
+def _candidate_sort_key(c: dict):
+    return c["priority"] if c["priority"] is not None else 0
+
+
+def parse_single_component(text: str) -> "str | None":
+    """从 resolve / 角色类输出里取最后一个 ``包名/类名``。"""
+    found = None
+    for line in text.splitlines():
+        for pkg, cls in COMPONENT_RE.findall(line):
+            found = _full_component(pkg, cls)
+    return found
+
+
+def parse_version_name(text: str) -> "str | None":
+    m = re.search(r"versionName=(\S+)", text)
+    return m.group(1) if m else None
+
+
+def _is_viable_home(candidate: dict) -> bool:
+    pkg, _, cls = candidate["component"].partition("/")
+    if pkg in NON_VIABLE_PKGS:
+        return False
+    return not any(mark in cls for mark in NON_VIABLE_CLASS_MARKS)
+
+
+def resolve_home(link) -> "str | None":
+    out = link.shell(f"cmd package resolve-activity -a {MAIN_ACTION} -c {HOME_CATEGORY}")
+    return parse_single_component(out)
+
+
+def home_role(link) -> "str | None":
+    """HOME 角色的持有者。Android 10 的 ``cmd role`` 没有 get-role-holders，退回 dumpsys。"""
+    out = link.shell("cmd role get-role-holders android.app.role.HOME")
+    holder = parse_single_component(out)
+    if holder:
+        return holder
+    dump = link.shell("dumpsys role")
+    section = None
+    holder = None
+    for line in dump.splitlines():
+        if "android.app.role.HOME" in line:
+            section = True
+            continue
+        if section and "Role" in line and "android.app.role.HOME" not in line:
+            break
+        if section:
+            for pkg, cls in COMPONENT_RE.findall(line):
+                holder = _full_component(pkg, cls)
+    return holder
+
+
+def foreground_pkg(link) -> "str | None":
+    """注入主页键后前台是谁（设计稿 §8.4 第 6 步）。"""
+    dump = link.shell("dumpsys activity activities")
+    for line in dump.splitlines():
+        if "ResumedActivity" in line or "topResumedActivity" in line:
+            m = COMPONENT_RE.search(line)
+            if m:
+                return m.group(1)
+    return None
+
+
+def pm_path(link, pkg: str) -> "str | None":
+    out = link.shell(f"pm path {pkg}")
+    for line in out.splitlines():
+        if line.startswith("package:"):
+            return line[len("package:"):].strip()
+    return None
+
+
+def version_of(link, pkg: str) -> "str | None":
+    return parse_version_name(link.shell(f"dumpsys package {pkg}"))
+
+
+def disabled_packages(link) -> list:
+    out = link.shell("pm list packages -d")
+    return [line[len("package:"):].strip() for line in out.splitlines() if line.startswith("package:")]
+
+
+def serial_of(props: dict, host: str) -> str:
+    serial = (props.get("ro.serialno") or "").strip()
+    return serial or host.replace(":", "_")
+
+
+def snapshot(link, host: str) -> dict:
+    """改设备前的快照：原 HOME、相关包的原状态、固件指纹（§8.6）。"""
+    props = parse_props(link.shell("getprop"))
+    original = resolve_home(link)
+    packages: dict = {}
+    if original and original.split("/")[0] != SHELL_PKG:
+        packages[original.split("/")[0]] = {"was_enabled": True}
+    packages[SHELL_PKG] = {"was_installed": pm_path(link, SHELL_PKG) is not None}
+    packages[MAIN_PKG] = {"was_installed": pm_path(link, MAIN_PKG) is not None}
+    return {
+        "serial": serial_of(props, host),
+        "host": host,
+        "fingerprint": props.get("ro.build.fingerprint", ""),
+        "original_home": original if original and original.split("/")[0] != SHELL_PKG else None,
+        "packages": packages,
+    }
+
+
+def probe(link, host: str) -> dict:
+    """只读摸底（§8.3 probe）。P1 没有机型记录，级别一律按 B：只换桌面、不去臃肿。"""
+    props = parse_props(link.shell("getprop"))
+    candidates = parse_candidates(link.shell(
+        f"cmd package query-activities -a {MAIN_ACTION} -c {HOME_CATEGORY}"))
+    mem = ""
+    for line in link.shell("cat /proc/meminfo").splitlines():
+        if line.startswith("MemTotal:"):
+            mem = line
+            break
+    mem_kb = re.sub(r"\D", "", mem) or None
+    return {
+        "host": host,
+        "model": props.get("ro.product.model", ""),
+        "device": props.get("ro.product.device", ""),
+        "name": props.get("ro.product.name", ""),
+        "android": props.get("ro.build.version.release", ""),
+        "sdk": props.get("ro.build.version.sdk", ""),
+        "serial": serial_of(props, host),
+        "fingerprint": props.get("ro.build.fingerprint", ""),
+        "adb_secure": props.get("ro.adb.secure", ""),
+        "mem_total_mb": round(int(mem_kb) / 1024) if mem_kb else None,
+        "home_resolved": resolve_home(link),
+        "home_role": home_role(link),
+        "home_candidates": candidates,
+        "movieclaw": {"installed": pm_path(link, MAIN_PKG) is not None, "version": version_of(link, MAIN_PKG)},
+        "shell": {"installed": pm_path(link, SHELL_PKG) is not None, "version": version_of(link, SHELL_PKG)},
+        "level": "B",
+        "level_note": "这台还没有验证过的机型记录：只换桌面、不停用别的应用、不去臃肿。",
+    }
+
+
+def push_and_install(link, apk_bytes: bytes, remote_path: str) -> str:
+    """推 APK → ``pm install -r``。输出没有 Success 就算失败（§8.4 第 2 步）；预编译由调用方做。"""
+    if not apk_bytes:
+        raise ValueError("APK 内容为空")
+    fd, local = tempfile.mkstemp(prefix="tv-home-", suffix=".apk")
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(apk_bytes)
+        link.push(local, remote_path)
+        out = link.shell(f"pm install -r {remote_path}")
+    finally:
+        try:
+            os.remove(local)
+        except OSError:
+            pass
+        link.shell(f"rm -f {remote_path}")
+    if "Success" not in out:
+        raise RuntimeError(f"pm install 没有返回 Success：\n{out.strip()}")
+    return out
+
+
+def _compile(link, pkg: str, mode: str) -> None:
+    out = link.shell(f"cmd package compile -m {mode} -f {pkg}")
+    if "Success" not in out:
+        raise RuntimeError(f"预编译 {pkg} 没有返回 Success：\n{out.strip()}")
+
+
+def install_shell(link, apk_bytes: bytes) -> None:
+    push_and_install(link, apk_bytes, REMOTE_SHELL_APK)
+    _compile(link, SHELL_PKG, "speed")
+
+
+def install_main(link, apk_bytes: bytes) -> None:
+    push_and_install(link, apk_bytes, REMOTE_MAIN_APK)
+    _compile(link, MAIN_PKG, "speed-profile")
+
+
+def run_install_shell(link, record: "dict | None") -> dict:
+    """只装（或重装）桌面壳，不动桌面。装不上判为 C 级（§8.4 第 2 步）。"""
+    snap = snapshot(link, link.host)
+    record = merge_record(record, snap)
+    return {"record": record, "serial": snap["serial"], "say": "桌面壳已就绪，接着调 home 换桌面。"}
+
+
+def run_home(link, record: "dict | None", shell_apk_bytes: bytes) -> dict:
+    """换桌面（§8.4 的七步）。业务失败返回 ok=False 与救援文本；不改记录里的旧条目。"""
+    snap = snapshot(link, link.host)
+    record = merge_record(record, snap)
+    serial = snap["serial"]
+
+    def failed(say: str, notes: "list[str] | None" = None) -> dict:
+        res = {"ok": False, "say": say, "level": "C", "record": record, "serial": serial,
+               "rescue": rescue_text(record, notes or [])}
+        return res
+
+    # 第 2 步：装桌面壳；安装就报错的固件判为 C 级
+    try:
+        install_shell(link, shell_apk_bytes)
+    except (RuntimeError, ValueError) as e:
+        return failed(f"桌面壳装不上，电视没动：{e}\n这台多半属于「拒装声明 HOME 的包」的固件（C 级）。")
+
+    # 第 3 步：单独启动，证明桌面壳真能起来；随后停掉这份普通任务（否则成为桌面后起第二份）
+    out = link.shell(f"am start -W -n {SHELL_ACTIVITY}")
+    if "Status: ok" not in out:
+        return failed(f"桌面壳单独启动失败（am start -W 没有返回 Status: ok）：\n{out.strip()}")
+    link.shell(f"am force-stop {SHELL_PKG}")
+
+    # 第 4 步：设默认桌面
+    link.shell(f"cmd package set-home-activity {SHELL_ACTIVITY}")
+    resolved = resolve_home(link)
+    disabled_pkg = None
+
+    if resolved is None or resolved.split("/")[0] != SHELL_PKG:
+        # 第 5 步：没生效，看是不是厂商桌面优先级更高、需要停用
+        candidates = parse_candidates(link.shell(
+            f"cmd package query-activities -a {MAIN_ACTION} -c {HOME_CATEGORY}"))
+        others = [c for c in candidates if c["component"].split("/")[0] != SHELL_PKG and _is_viable_home(c)]
+        others.sort(key=_candidate_sort_key, reverse=True)
+        if not others:
+            return failed(f"设默认桌面没生效，又找不到能停用的厂商桌面（HOME 候选：{candidates}）。"
+                          f"不动设备，判为 C 级。")
+        top = others[0]
+        tied = [c for c in others if _candidate_sort_key(c) == _candidate_sort_key(top)]
+        if len(tied) > 1:
+            return failed(f"有两个同样高的 HOME 候选分不清谁当家（{tied}），不敢停用。判为 C 级。")
+        if _candidate_sort_key(top) <= 0:
+            return failed(f"厂商桌面 {top['component']} 的优先级是 {_candidate_sort_key(top)}，"
+                          f"设默认本应生效却没生效。不动设备，判为 C 级。")
+        blockers = [c for c in others[1:]
+                    if _candidate_sort_key(c) >= 0 or c["priority"] is None]
+        if blockers:
+            return failed(
+                f"停用 {top['component']} 之后，这些候选的优先级仍不低于桌面壳、可能抢当 HOME："
+                f"{[c['component'] for c in blockers]}。真机 Google TV 的设置向导就属于这种情况，"
+                f"要有机型记录才能继续。判为 C 级。")
+        link.shell(f"pm disable-user --user 0 {top['component'].split('/')[0]}")
+        disabled_pkg = top["component"]
+        resolved = resolve_home(link)
+        if resolved is None or resolved.split("/")[0] != SHELL_PKG:
+            link.shell(f"pm enable {disabled_pkg.split('/')[0]}")
+            return failed(f"停用厂商桌面后 HOME 仍没到桌面壳，已重新启用 {disabled_pkg}。判为 C 级。")
+
+    # 第 6 步：注入一次主页键，前台应该是 MovieClaw（没装主 App 时是桌面壳本身）
+    link.shell("input keyevent KEYCODE_HOME")
+    time.sleep(SLEEP_AFTER_HOME_KEY)
+    fg = foreground_pkg(link)
+    if fg not in (SHELL_PKG, MAIN_PKG):
+        notes = []
+        if disabled_pkg:
+            link.shell(f"pm enable {disabled_pkg.split('/')[0]}")
+            notes.append(f"已重新启用 {disabled_pkg}；如需彻底还原再执行 restore。")
+        original = record.get("original_home")
+        if original:
+            link.shell(f"cmd package set-home-activity {original}")
+            notes.append(f"已尝试把默认桌面设回 {original}。")
+        return failed(f"注入主页键后前台是 {fg or '未知'}，不是 MovieClaw，已回滚。"
+                      f"请再按一下真遥控器的主页键确认；真遥控器也回不去的话，这台的主页键被厂商固定了（C 级）。",
+                      notes)
+
+    say = (f"换桌面完成：主页键现在落到「MovieClaw 桌面」"
+           f"{'，厂商桌面 ' + disabled_pkg + ' 已停用（记录在案，可还原）' if disabled_pkg else '，厂商桌面保持启用'}。"
+           f"请按一下真遥控器的主页键，告诉我屏幕上是什么；结束时我会调 close 帮你关掉调试。")
+    return {"ok": True, "say": say, "level": "B", "record": record, "serial": serial,
+            "disabled": disabled_pkg, "foreground": fg, "rescue": None}
+
+
+def run_verify(link, record: "dict | None") -> dict:
+    """汇总现状（§8.3 verify）：HOME 归属、角色、被停用的包与记录是否一致。"""
+    resolved = resolve_home(link)
+    candidates = parse_candidates(link.shell(
+        f"cmd package query-activities -a {MAIN_ACTION} -c {HOME_CATEGORY}"))
+    disabled = set(disabled_packages(link))
+    recorded = {pkg for pkg, st in (record or {}).get("packages", {}).items()
+                if st.get("was_enabled") and pkg != SHELL_PKG}
+    unexpectedly = sorted(pkg for pkg in recorded if pkg not in disabled)
+    missing = sorted(pkg for pkg in recorded if pkg in disabled)
+    ok = resolved is not None and resolved.split("/")[0] == SHELL_PKG
+    say = (f"HOME 现在解析到 {resolved or '未知'}。"
+           + (f"记录里该停用的包都在停用状态。" if recorded and not unexpectedly
+              else f"注意：{unexpectedly} 在记录里是停用前就启用的包，现在被停用了。" if unexpectedly
+              else "")
+           + (f"以下包按记录处于停用：{missing}。" if missing else ""))
+    return {"ok": ok, "say": say, "home": resolved, "role": home_role(link),
+            "candidates": candidates, "disabled": sorted(disabled),
+            "unexpectedly_disabled": unexpectedly}
+
+
+def run_restore(link, record: "dict | None", uninstall_main: bool = False) -> dict:
+    """还原（§8.6）：先启用厂商桌面、设回原 HOME，再卸桌面壳。顺序不能反。"""
+    if not record:
+        return {"ok": False,
+                "say": "这台电视没有状态记录，不知道改过什么，拒绝盲操作。"
+                       "厂商桌面没被停用的话，可以直接在系统设置里卸载「MovieClaw 桌面」；"
+                       "被停用的应用要在系统设置的应用列表里逐个启用。"}
+    steps = []
+    disabled_now = set(disabled_packages(link))
+    for pkg, st in record.get("packages", {}).items():
+        if pkg == SHELL_PKG:
+            continue
+        if st.get("was_enabled") and pkg in disabled_now:
+            link.shell(f"pm enable {pkg}")
+            steps.append(f"已重新启用 {pkg}")
+    original = record.get("original_home")
+    if original:
+        link.shell(f"cmd package set-home-activity {original}")
+        steps.append(f"已把默认桌面设回 {original}")
+    if pm_path(link, SHELL_PKG) is not None:
+        out = link.shell(f"pm uninstall {SHELL_PKG}")
+        steps.append(f"已卸载桌面壳（{out.strip().splitlines()[-1] if out.strip() else 'ok'}）")
+    if uninstall_main and pm_path(link, MAIN_PKG) is not None:
+        link.shell(f"pm uninstall {MAIN_PKG}")
+        steps.append(f"已按要求卸载 {MAIN_PKG}")
+    resolved = resolve_home(link)
+    expect = original.split("/")[0] if original else None
+    ok = expect is None or (resolved is not None and resolved.split("/")[0] == expect)
+    say = "；".join(steps) + f"。HOME 现在解析到 {resolved or '未知'}。"
+    if not ok:
+        say += "（和记录里的原桌面不一致，请在系统设置里再确认一次默认桌面）"
+    return {"ok": ok, "say": say, "home": resolved}
+
+
+def check_port_closed(host: str, port: int = 5555, timeout_s: float = 5.0) -> bool:
+    """只认「连接被拒绝」为已关（§8.3 close）；超时或连得上都算没关。"""
+    import socket
+
+    s = socket.socket()
+    s.settimeout(timeout_s)
+    try:
+        s.connect((host, port))
+    except ConnectionRefusedError:
+        return True
+    except OSError:
+        return False
+    finally:
+        s.close()
+    return False

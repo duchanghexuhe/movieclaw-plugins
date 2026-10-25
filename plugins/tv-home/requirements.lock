@@ -1,0 +1,16 @@
+# MovieClaw 插件依赖锁文件：python -m movieclaw_sdk.deps lock 生成，不要手改
+# python: 3.12
+# index: https://pypi.org/simple
+# 每个包上方的 #> 行是它的轮子（文件名、字节数、sha256），安装时 pip 当注释跳过
+
+#> adb_shell-0.4.3-py3-none-any.whl 54531 sha256:afaaaecb2074596c8c7d7df5cf3625f573346f1ad258a6664b2b64b9f06a5020
+adb-shell==0.4.3 \
+    --hash=sha256:afaaaecb2074596c8c7d7df5cf3625f573346f1ad258a6664b2b64b9f06a5020
+
+#> pyasn1-0.6.4-py3-none-any.whl 84410 sha256:deda9277cfd454080ec40b207fb6df82206a3a2688735233cdcd8d3d565f088b
+pyasn1==0.6.4 \
+    --hash=sha256:deda9277cfd454080ec40b207fb6df82206a3a2688735233cdcd8d3d565f088b
+
+#> rsa-4.9.1-py3-none-any.whl 34696 sha256:68635866661c6836b8d39430f97a996acbd61bfa49406748ea243539fe239762
+rsa==4.9.1 \
+    --hash=sha256:68635866661c6836b8d39430f97a996acbd61bfa49406748ea243539fe239762

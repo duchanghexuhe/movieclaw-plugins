@@ -1,0 +1,19 @@
+[plugin]
+id = "tv-home"
+title = "电视桌面"
+version = "0.1.0"
+entry = "tv_home"
+runtime = "process"
+sdk = "^1.0"
+description = "把厂商桌面换成「MovieClaw 桌面」：开机、按主页键直达 MovieClaw 首页，从 MovieClaw 退出是「全部应用」。agent 引导用户在电视上开启调试后执行，改动的每一步都有记录、可还原。"
+
+[requires]
+"plugin-files" = "^1.0"
+"plugin-routes" = "^1.0"
+
+[permissions]
+network = true
+operations = []
+
+[dependencies]
+lock = "requirements.lock"
