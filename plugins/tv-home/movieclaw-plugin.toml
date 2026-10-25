@@ -5,7 +5,7 @@ version = "0.1.0"
 entry = "tv_home"
 runtime = "process"
 sdk = "^1.0"
-description = "把厂商桌面换成「MovieClaw 桌面」：开机、按主页键直达 MovieClaw 首页，从 MovieClaw 退出是「全部应用」。agent 引导用户在电视上开启调试后执行，改动的每一步都有记录、可还原。"
+description = "把厂商桌面换成「MovieClaw 桌面」：开机、按主页键直达 MovieClaw 首页，从 MovieClaw 退出是「全部应用」。装好后对 AI 助手说「用电视桌面插件帮我给电视换桌面」，跟着引导做：电视上开调试、点允许、按主页键确认，最后关调试。不 root、不动系统分区，改动的每一步有记录、可还原。"
 
 [requires]
 "plugin-files" = "^1.0"
