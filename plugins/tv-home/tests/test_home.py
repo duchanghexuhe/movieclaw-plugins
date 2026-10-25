@@ -3,8 +3,8 @@
 import unittest
 
 from tv_home import operations as ops
-from .fake_adb import (DANGBEI, FALLBACK, MAIN_PKG, SHELL_ACTIVITY, SHELL_PKG,
-                       SETUPWRAITH, TVLAUNCHER, FakeLink)
+from .fake_adb import (AERIAL_ACTIVITY, AERIAL_PKG, DANGBEI, FALLBACK, MAIN_PKG,
+                       SHELL_ACTIVITY, SHELL_PKG, SETUPWRAITH, TVLAUNCHER, FakeLink)
 
 APK = b"fake-shell-apk-bytes"
 
@@ -106,6 +106,49 @@ class HomeDisableTest(unittest.TestCase):
         res = ops.run_home(link, None, APK)
         self.assertFalse(res["ok"])
         self.assertFalse(link.called("pm disable-user"))
+
+
+class AerialShellTest(unittest.TestCase):
+    """可选壳 aerial-tv（app.orchard.tv）：安装归 install 接口，home 只要求已装。"""
+
+    def setUp(self):
+        ops.SLEEP_AFTER_HOME_KEY = 0
+
+    def aerial_like(self, **kw):
+        kw.setdefault("resolved", AERIAL_ACTIVITY)
+        kw.setdefault("installed", {AERIAL_PKG})
+        kw.setdefault("foreground", AERIAL_PKG)
+        kw.setdefault("foreground_after_home", AERIAL_PKG)
+        return FakeLink(candidates=[{"component": TVLAUNCHER, "priority": 2},
+                                    {"component": FALLBACK, "priority": -1000},
+                                    {"component": AERIAL_ACTIVITY, "priority": 0}], **kw)
+
+    def test_home_starts_and_verifies_aerial(self):
+        link = self.aerial_like()
+        res = ops.run_home(link, None, None, shell="aerial")
+        self.assertTrue(res["ok"], res.get("say"))
+        self.assertEqual(res["foreground"], AERIAL_PKG)
+        self.assertTrue(link.called("am start -W -n " + AERIAL_ACTIVITY))
+        self.assertFalse(link.called("pm install"), "aerial 的安装归 install 接口")
+        self.assertFalse(link.called("cmd package compile"), "home 不重装也就不预编译")
+
+    def test_home_with_aerial_requires_install_first(self):
+        link = self.aerial_like()
+        link.installed.discard(AERIAL_PKG)
+        res = ops.run_home(link, None, None, shell="aerial")
+        self.assertFalse(res["ok"])
+        self.assertIn("install", res["say"])
+        self.assertFalse(link.called("cmd package set-home-activity"), "壳没装就不该动桌面")
+
+    def test_aerial_foreground_accepts_only_itself(self):
+        # aerial 壳不会拉起 MovieClaw：换壳后前台是 MovieClaw 反而说明出错了；
+        # 初始 HOME 被 tvlauncher（优先级 2）压着，走停用路径来验证回滚会重新启用厂商桌面
+        link = self.aerial_like(resolved=TVLAUNCHER, set_home_effective=False,
+                                foreground_after_home=MAIN_PKG)
+        res = ops.run_home(link, None, None, shell="aerial")
+        self.assertFalse(res["ok"])
+        self.assertTrue(res["rescue"])
+        self.assertTrue(link.called("pm enable com.google.android.tvlauncher"), "回滚要重新启用厂商桌面")
 
 
 if __name__ == "__main__":

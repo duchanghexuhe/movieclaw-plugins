@@ -3,6 +3,15 @@
 把安卓电视 / 盒子 / 投影的厂商桌面换成「MovieClaw 桌面」：开机、按主页键直达 MovieClaw 首页，
 从 MovieClaw 退出是「全部应用」。不 root、不动系统分区，改设备前写状态记录，随时可还原。
 
+## 两种桌面壳
+
+换桌面时装的「桌面壳」有两种，流程与还原完全一样：
+
+- **「MovieClaw 桌面」（默认）**：随插件包发的极简壳——开机、按主页键直达 MovieClaw 首页，退出是「全部应用」。不联网、约 0.2 MB，适合「电视就是用来看 MovieClaw」的机器。
+- **aerial-tv 桌面（可选，Apple TV 风格）**：对 agent 说「装 aerial 那种 Apple TV 风格的桌面」即可，install 和 home 都带 `shell=aerial`。插件从 [pengchujin/aerial-tv](https://github.com/pengchujin/aerial-tv)（MIT，包名 `app.orchard.tv`）的正式 Release 下载 `aerial-standard.apk` 并按它发布的 sha256 校验；它自带壁纸、航拍屏保、控制中心和应用整理。它的 guard 变体（给拒装 HOME 包机型的接管方案）我们不装，对应我们设计稿的 P4。
+
+无论哪种壳，状态记录、`verify`、`restore`、`close` 的行为一致；还原时只卸「我们装上的」壳，你原本就装的壳会保留。
+
 ## 使用前提
 
 - 一台安卓 6.0 以上的电视 / 盒子 / 投影（Fire TV、三星 Tizen、LG webOS 不支持）；

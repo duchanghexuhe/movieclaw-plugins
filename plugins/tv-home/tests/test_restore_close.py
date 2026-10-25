@@ -3,8 +3,8 @@
 import unittest
 
 from tv_home import operations as ops
-from .fake_adb import (DANGBEI, MAIN_PKG, SHELL_ACTIVITY, SHELL_PKG, TVLAUNCHER,
-                       FakeLink)
+from .fake_adb import (AERIAL_ACTIVITY, AERIAL_PKG, DANGBEI, MAIN_PKG,
+                       SHELL_ACTIVITY, SHELL_PKG, TVLAUNCHER, FakeLink)
 from .test_records import a_snapshot
 
 
@@ -73,6 +73,26 @@ class RestoreTest(unittest.TestCase):
         res = ops.run_restore(link, None)
         self.assertFalse(res["ok"])
         self.assertEqual(link.shell_calls, [], "没有记录就不该碰设备")
+
+
+class RestoreAerialTest(unittest.TestCase):
+    def setUp(self):
+        ops.SLEEP_AFTER_HOME_KEY = 0
+
+    def test_uninstalls_only_shells_we_installed(self):
+        """两种壳并存：记录里「我们装的」（was_installed=False）才卸，用户原有的保留。"""
+        link = FakeLink(candidates=[], resolved=AERIAL_ACTIVITY,
+                        installed={AERIAL_PKG, SHELL_PKG, MAIN_PKG})
+        record = {"schema": 1, "serial": "s", "host": "h", "fingerprint": "f",
+                  "created_at": "", "updated_at": "",
+                  "original_home": TVLAUNCHER,
+                  "packages": {AERIAL_PKG: {"was_installed": False},
+                               SHELL_PKG: {"was_installed": True}}}
+        res = ops.run_restore(link, record)
+        self.assertTrue(res["ok"], res.get("say"))
+        self.assertNotIn(AERIAL_PKG, link.installed, "我们装的 aerial 要卸")
+        self.assertIn(SHELL_PKG, link.installed, "用户原本就装的壳保留")
+        self.assertIn("保留", res["say"])
 
 
 class CloseTest(unittest.TestCase):

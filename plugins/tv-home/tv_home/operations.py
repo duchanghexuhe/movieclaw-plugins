@@ -19,6 +19,13 @@ SHELL_PKG = "io.movieclaw.androidtv.home"
 SHELL_ACTIVITY = SHELL_PKG + "/.HomeActivity"
 MAIN_PKG = "io.movieclaw.androidtv"
 
+# 桌面壳有两种（设计稿 §6）：默认自带的极简壳；可选的 aerial-tv（MIT，tvOS 风格）。
+# shell 名 → (包名, 启动 Activity)。aerial 的 Activity 取自它 install.sh 的 set-home-activity 写法。
+SHELL_PKGS = {
+    "movieclaw": (SHELL_PKG, SHELL_ACTIVITY),
+    "aerial": ("app.orchard.tv", "app.orchard.tv/.MainActivity"),
+}
+
 MAIN_ACTION = "android.intent.action.MAIN"
 HOME_CATEGORY = "android.intent.category.HOME"
 
@@ -228,19 +235,22 @@ def serial_of(props: dict, host: str) -> str:
 
 
 def snapshot(link, host: str) -> dict:
-    """改设备前的快照：原 HOME、相关包的原状态、固件指纹（§8.6）。"""
+    """改设备前的快照：原 HOME、相关包的原状态、固件指纹（§8.6）。两种壳都记。"""
     props = parse_props(link.shell("getprop"))
     original = resolve_home(link)
     packages: dict = {}
-    if original and original.split("/")[0] != SHELL_PKG:
+    if original and original.split("/")[0] not in {p for p, _ in SHELL_PKGS.values()}:
         packages[original.split("/")[0]] = {"was_enabled": True}
-    packages[SHELL_PKG] = {"was_installed": pm_path(link, SHELL_PKG) is not None}
+    for shell_pkg in {p for p, _ in SHELL_PKGS.values()}:
+        packages[shell_pkg] = {"was_installed": pm_path(link, shell_pkg) is not None}
     packages[MAIN_PKG] = {"was_installed": pm_path(link, MAIN_PKG) is not None}
     return {
         "serial": serial_of(props, host),
         "host": host,
         "fingerprint": props.get("ro.build.fingerprint", ""),
-        "original_home": original if original and original.split("/")[0] != SHELL_PKG else None,
+        "original_home": original
+        if original and original.split("/")[0] not in {p for p, _ in SHELL_PKGS.values()}
+        else None,
         "packages": packages,
     }
 
@@ -271,7 +281,10 @@ def probe(link, host: str) -> dict:
         "home_role": home_role(link),
         "home_candidates": candidates,
         "movieclaw": {"installed": pm_path(link, MAIN_PKG) is not None, "version": version_of(link, MAIN_PKG)},
-        "shell": {"installed": pm_path(link, SHELL_PKG) is not None, "version": version_of(link, SHELL_PKG)},
+        "shells": {
+            name: {"installed": pm_path(link, pkg) is not None, "version": version_of(link, pkg)}
+            for name, (pkg, _) in SHELL_PKGS.items()
+        },
         "level": "B",
         "level_note": "这台还没有验证过的机型记录：只换桌面、不停用别的应用、不去臃肿。",
     }
@@ -304,9 +317,10 @@ def _compile(link, pkg: str, mode: str) -> None:
         raise RuntimeError(f"预编译 {pkg} 没有返回 Success：\n{out.strip()}")
 
 
-def install_shell(link, apk_bytes: bytes) -> None:
+def install_shell(link, apk_bytes: bytes, shell: str = "movieclaw") -> None:
+    pkg, _ = SHELL_PKGS[shell]
     push_and_install(link, apk_bytes, REMOTE_SHELL_APK)
-    _compile(link, SHELL_PKG, "speed")
+    _compile(link, pkg, "speed")
 
 
 def install_main(link, apk_bytes: bytes) -> None:
@@ -321,8 +335,14 @@ def run_install_shell(link, record: "dict | None") -> dict:
     return {"record": record, "serial": snap["serial"], "say": "桌面壳已就绪，接着调 home 换桌面。"}
 
 
-def run_home(link, record: "dict | None", shell_apk_bytes: bytes) -> dict:
-    """换桌面（§8.4 的七步）。业务失败返回 ok=False 与救援文本；不改记录里的旧条目。"""
+def run_home(link, record: "dict | None", shell_apk_bytes: "bytes | None" = None, shell: str = "movieclaw") -> dict:
+    """换桌面（§8.4 的七步）。业务失败返回 ok=False 与救援文本；不改记录里的旧条目。
+
+    shell：装哪种桌面壳。movieclaw（默认）的 APK 随插件包发，字节必给；
+    aerial 的 APK 在 install 时下载，这里只要求已安装（shell_apk_bytes 为 None）。
+    """
+    shell_pkg, shell_activity = SHELL_PKGS[shell]
+    shell_name = "「MovieClaw 桌面」" if shell == "movieclaw" else "aerial-tv 桌面"
     snap = snapshot(link, link.host)
     record = merge_record(record, snap)
     serial = snap["serial"]
@@ -333,28 +353,31 @@ def run_home(link, record: "dict | None", shell_apk_bytes: bytes) -> dict:
         return res
 
     # 第 2 步：装桌面壳；安装就报错的固件判为 C 级
-    try:
-        install_shell(link, shell_apk_bytes)
-    except (RuntimeError, ValueError) as e:
-        return failed(f"桌面壳装不上，电视没动：{e}\n这台多半属于「拒装声明 HOME 的包」的固件（C 级）。")
+    if shell_apk_bytes is not None:
+        try:
+            install_shell(link, shell_apk_bytes, shell)
+        except (RuntimeError, ValueError) as e:
+            return failed(f"桌面壳装不上，电视没动：{e}\n这台多半属于「拒装声明 HOME 的包」的固件（C 级）。")
+    elif pm_path(link, shell_pkg) is None:
+        return failed(f"{shell_name}还没装：先调 install（shell={shell}）再 home。")
 
     # 第 3 步：单独启动，证明桌面壳真能起来；随后停掉这份普通任务（否则成为桌面后起第二份）
-    out = link.shell(f"am start -W -n {SHELL_ACTIVITY}")
+    out = link.shell(f"am start -W -n {shell_activity}")
     if "Status: ok" not in out:
         return failed(f"桌面壳单独启动失败（am start -W 没有返回 Status: ok）：\n{out.strip()}")
-    link.shell(f"am force-stop {SHELL_PKG}")
+    link.shell(f"am force-stop {shell_pkg}")
 
     # 第 4 步：设默认桌面（--user 0 照 aerial-tv 的写法，显式钉住用户）
-    link.shell(f"cmd package set-home-activity --user 0 {SHELL_ACTIVITY}")
+    link.shell(f"cmd package set-home-activity --user 0 {shell_activity}")
     resolved = resolve_home(link)
     disabled_pkg = None
 
-    if resolved is None or resolved.split("/")[0] != SHELL_PKG:
+    if resolved is None or resolved.split("/")[0] != shell_pkg:
         # 第 5 步：没生效，看是不是厂商桌面优先级更高、需要停用
         candidates = parse_candidates(link.shell(
             f"cmd package query-activities -a {MAIN_ACTION} -c {HOME_CATEGORY}"))
         others = [c for c in candidates
-                  if c["component"].split("/")[0] != SHELL_PKG and _is_viable_home(c) and c.get("enabled", True)]
+                  if c["component"].split("/")[0] != shell_pkg and _is_viable_home(c) and c.get("enabled", True)]
         others.sort(key=_candidate_sort_key, reverse=True)
         if not others:
             return failed(f"设默认桌面没生效，又找不到能停用的厂商桌面（HOME 候选：{candidates}）。"
@@ -376,15 +399,16 @@ def run_home(link, record: "dict | None", shell_apk_bytes: bytes) -> dict:
         link.shell(f"pm disable-user --user 0 {top['component'].split('/')[0]}")
         disabled_pkg = top["component"]
         resolved = resolve_home(link)
-        if resolved is None or resolved.split("/")[0] != SHELL_PKG:
+        if resolved is None or resolved.split("/")[0] != shell_pkg:
             link.shell(f"pm enable {disabled_pkg.split('/')[0]}")
             return failed(f"停用厂商桌面后 HOME 仍没到桌面壳，已重新启用 {disabled_pkg}。判为 C 级。")
 
-    # 第 6 步：注入一次主页键，前台应该是 MovieClaw（没装主 App 时是桌面壳本身）
+    # 第 6 步：注入一次主页键，前台应该是桌面壳（movieclaw 壳会再拉起 MovieClaw 主 App）
     link.shell("input keyevent KEYCODE_HOME")
     time.sleep(SLEEP_AFTER_HOME_KEY)
     fg = foreground_pkg(link)
-    if fg not in (SHELL_PKG, MAIN_PKG):
+    accepted = {shell_pkg} | ({MAIN_PKG} if shell == "movieclaw" else set())
+    if fg not in accepted:
         notes = []
         if disabled_pkg:
             link.shell(f"pm enable {disabled_pkg.split('/')[0]}")
@@ -393,11 +417,11 @@ def run_home(link, record: "dict | None", shell_apk_bytes: bytes) -> dict:
         if original:
             link.shell(f"cmd package set-home-activity --user 0 {original}")
             notes.append(f"已尝试把默认桌面设回 {original}。")
-        return failed(f"注入主页键后前台是 {fg or '未知'}，不是 MovieClaw，已回滚。"
+        return failed(f"注入主页键后前台是 {fg or '未知'}，不是{shell_name}，已回滚。"
                       f"请再按一下真遥控器的主页键确认；真遥控器也回不去的话，这台的主页键被厂商固定了（C 级）。",
                       notes)
 
-    say = (f"换桌面完成：主页键现在落到「MovieClaw 桌面」"
+    say = (f"换桌面完成：主页键现在落到{shell_name}"
            f"{'，厂商桌面 ' + disabled_pkg + ' 已停用（记录在案，可还原）' if disabled_pkg else '，厂商桌面保持启用'}。"
            f"请按一下真遥控器的主页键，告诉我屏幕上是什么；结束时我会调 close 帮你关掉调试。")
     return {"ok": True, "say": say, "level": "B", "record": record, "serial": serial,
@@ -410,11 +434,12 @@ def run_verify(link, record: "dict | None") -> dict:
     candidates = parse_candidates(link.shell(
         f"cmd package query-activities -a {MAIN_ACTION} -c {HOME_CATEGORY}"))
     disabled = set(disabled_packages(link))
+    shell_pkgs = {p for p, _ in SHELL_PKGS.values()}
     recorded = {pkg for pkg, st in (record or {}).get("packages", {}).items()
-                if st.get("was_enabled") and pkg != SHELL_PKG}
+                if st.get("was_enabled") and pkg not in shell_pkgs}
     unexpectedly = sorted(pkg for pkg in recorded if pkg not in disabled)
     missing = sorted(pkg for pkg in recorded if pkg in disabled)
-    ok = resolved is not None and resolved.split("/")[0] == SHELL_PKG
+    ok = resolved is not None and resolved.split("/")[0] in shell_pkgs
     say = (f"HOME 现在解析到 {resolved or '未知'}。"
            + (f"记录里该停用的包都在停用状态。" if recorded and not unexpectedly
               else f"注意：{unexpectedly} 在记录里是停用前就启用的包，现在被停用了。" if unexpectedly
@@ -426,16 +451,20 @@ def run_verify(link, record: "dict | None") -> dict:
 
 
 def run_restore(link, record: "dict | None", uninstall_main: bool = False) -> dict:
-    """还原（§8.6）：先启用厂商桌面、设回原 HOME，再卸桌面壳。顺序不能反。"""
+    """还原（§8.6）：先启用厂商桌面、设回原 HOME，再卸桌面壳。顺序不能反。
+
+    两种壳都可能卸：记录里「我们装上的」（was_installed=False）才卸，
+    用户原本就有的壳保留。"""
     if not record:
         return {"ok": False,
                 "say": "这台电视没有状态记录，不知道改过什么，拒绝盲操作。"
-                       "厂商桌面没被停用的话，可以直接在系统设置里卸载「MovieClaw 桌面」；"
+                       "厂商桌面没被停用的话，可以直接在系统设置里卸载桌面壳；"
                        "被停用的应用要在系统设置的应用列表里逐个启用。"}
     steps = []
+    shell_pkgs = {p for p, _ in SHELL_PKGS.values()}
     disabled_now = set(disabled_packages(link))
     for pkg, st in record.get("packages", {}).items():
-        if pkg == SHELL_PKG:
+        if pkg in shell_pkgs:
             continue
         if st.get("was_enabled") and pkg in disabled_now:
             link.shell(f"pm enable {pkg}")
@@ -444,9 +473,13 @@ def run_restore(link, record: "dict | None", uninstall_main: bool = False) -> di
     if original:
         link.shell(f"cmd package set-home-activity --user 0 {original}")
         steps.append(f"已把默认桌面设回 {original}")
-    if pm_path(link, SHELL_PKG) is not None:
-        out = link.shell(f"pm uninstall {SHELL_PKG}")
-        steps.append(f"已卸载桌面壳（{out.strip().splitlines()[-1] if out.strip() else 'ok'}）")
+    for shell_pkg in shell_pkgs:
+        if (record.get("packages", {}).get(shell_pkg, {}).get("was_installed") is False
+                and pm_path(link, shell_pkg) is not None):
+            out = link.shell(f"pm uninstall {shell_pkg}")
+            steps.append(f"已卸载桌面壳 {shell_pkg}（{out.strip().splitlines()[-1] if out.strip() else 'ok'}）")
+        elif record.get("packages", {}).get(shell_pkg, {}).get("was_installed"):
+            steps.append(f"{shell_pkg} 是你原本就装的，保留")
     if uninstall_main and pm_path(link, MAIN_PKG) is not None:
         link.shell(f"pm uninstall {MAIN_PKG}")
         steps.append(f"已按要求卸载 {MAIN_PKG}")

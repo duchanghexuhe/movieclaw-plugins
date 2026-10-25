@@ -51,14 +51,15 @@ class ProbeTest(unittest.TestCase):
         self.assertEqual(res["home_candidates"][0]["priority"], 0)
         self.assertEqual(res["level"], "B")
         self.assertFalse(res["movieclaw"]["installed"])
-        self.assertFalse(res["shell"]["installed"])
+        self.assertFalse(res["shells"]["movieclaw"]["installed"])
 
     def test_probe_reports_installed_versions(self):
         link = FakeLink(candidates=[], resolved=None,
                         installed={ops.MAIN_PKG, ops.SHELL_PKG})
         res = ops.probe(link, "192.168.1.50")
         self.assertEqual(res["movieclaw"]["version"], "0.5.0")
-        self.assertTrue(res["shell"]["installed"])
+        self.assertTrue(res["shells"]["movieclaw"]["installed"])
+        self.assertFalse(res["shells"]["aerial"]["installed"])
 
 
 class ForegroundTest(unittest.TestCase):

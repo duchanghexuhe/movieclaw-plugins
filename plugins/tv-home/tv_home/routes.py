@@ -26,18 +26,26 @@ SERVICE_NAME = "tv-home"
 RELEASE_API = "https://api.github.com/repos/movieclaw/MovieClaw/releases"
 MAIN_APK_ASSET = "MovieClaw-AndroidTV.apk"
 
+# GitHub 上的下载（主 App、aerial-tv）借用宿主的 github 服务路由：用户多半已为它配好代理
+# （国内部署常见「仅 github 走代理」）；插件自己的服务名那条路由是直连，会撞墙。
+GITHUB_SERVICE = "github"
+AERIAL_RELEASES_API = "https://api.github.com/repos/pengchujin/aerial-tv/releases"
+AERIAL_ASSET = "aerial-standard.apk"
+
 GUIDE = """先调本接口（guide）读操作说明，再按顺序调：connect → probe → install → home → verify → close。
 
 - 顺序执行，每一步把返回里的 say 原样转述给用户；失败就停下，不重试、不换别的办法。
 - 设备上的一切改动只通过本插件的接口；不要用 bash 自己连电视，不要拼 pm / settings / am 命令。
 - 只问用户三类事：遥控器上的手动步骤、看屏幕确认、要不要继续。
+- 桌面壳有两种：默认装自带的极简壳「MovieClaw 桌面」；用户想要 Apple TV 风格就 install 和 home 都带 shell=aerial
+  （装 aerial-tv，MIT 许可，含壁纸与航拍屏保，走它的 GitHub 正式版并校验哈希）。两种壳的换桌面与还原流程完全一样。
 - connect 返回 waiting_auth 时：电视上弹了「允许调试吗」，请用户点允许并勾选「始终允许」，点完再调一次 connect。
 - probe 的 level 是 B（或 C）时只换桌面、不去臃肿；把 level_note 告诉用户。
 - MovieClaw 没装时先调 install（可用 main_apk_url 给正式版地址，或不传参让插件取最新正式版；装不了就说明原因）。
-- home 成功后：请用户按一下真遥控器的主页键，说屏幕上是什么。真遥控器回不到 MovieClaw 就停下，把结果原样转述。
+- home 成功后：请用户按一下真遥控器的主页键，说屏幕上是什么。真遥控器回不到新桌面就停下，把结果原样转述。
 - 全部做完必须调 close（先请用户在电视上关掉调试），并告诉用户怎么还原：
-  调 restore 即可；厂商桌面没被停用的机型，也可以直接在系统设置里卸载「MovieClaw 桌面」。
-- 用户想卸载「MovieClaw 桌面」时：先调 restore（或确认厂商桌面没被停用），绝不先卸桌面壳——
+  调 restore 即可；厂商桌面没被停用的机型，也可以直接在系统设置里卸载桌面壳。
+- 用户想卸载桌面壳时：先调 restore（或确认厂商桌面没被停用），绝不先卸桌面壳——
   厂商桌面还停用着就卸桌面壳，屏幕会黑、遥控器救不回来。
 """
 
@@ -50,6 +58,11 @@ class HostBody(BaseModel):
 class InstallBody(HostBody):
     main_apk_url: "str | None" = Field(default=None, description="MovieClaw 主 App 的 APK 地址；不填就取最新正式版")
     main_apk_sha256: "str | None" = Field(default=None, description="APK 的 sha256（十六进制），下载后校验")
+    shell: str = Field(default="movieclaw", description="桌面壳：movieclaw（默认，随插件包）或 aerial（aerial-tv，tvOS 风格）")
+
+
+class HomeBody(HostBody):
+    shell: str = Field(default="movieclaw", description="哪种桌面壳；与 install 时一致")
 
 
 class RestoreBody(HostBody):
@@ -187,25 +200,54 @@ async def _latest_main_apk(client: httpx.AsyncClient) -> tuple:
     raise HTTPException(status_code=502, detail="最近的正式 Release 里没有 AndroidTV 安装包，直接给 main_apk_url")
 
 
+async def _download_checked(client: httpx.AsyncClient, url: str, expected: "str | None", origin: str) -> bytes:
+    """下载并按 sha256 校验（期望值缺了就拒绝装）。"""
+    resp = await client.get(url)
+    if resp.status_code >= 400:
+        raise HTTPException(status_code=502, detail=f"下载 {origin} 失败：HTTP {resp.status_code}")
+    data = resp.content
+    if expected and hashlib.sha256(data).hexdigest() != expected.lower():
+        raise HTTPException(status_code=502, detail=f"{origin} 的 sha256 对不上，拒绝安装")
+    if not expected:
+        raise HTTPException(status_code=422,
+                            detail=f"拿不到 {origin} 的 sha256，拒绝安装：请给哈希，或改用上传")
+    return data
+
+
 async def _fetch_main_apk(body: InstallBody) -> tuple:
     """下载主 App 安装包并校验 sha256（走宿主统一出口）。返回 (字节, 来源说明)。"""
-    async with httpx.AsyncClient(transport=http_transport(SERVICE_NAME), timeout=600.0,
+    async with httpx.AsyncClient(transport=http_transport(GITHUB_SERVICE), timeout=600.0,
                                  follow_redirects=True) as client:
         if body.main_apk_url:
             url, origin, expected = body.main_apk_url, body.main_apk_url, body.main_apk_sha256
         else:
             url, digest, tag = await _latest_main_apk(client)
             origin, expected = f"{tag} 的 {MAIN_APK_ASSET}", body.main_apk_sha256 or digest
-        resp = await client.get(url)
-        if resp.status_code >= 400:
-            raise HTTPException(status_code=502, detail=f"下载 {origin} 失败：HTTP {resp.status_code}")
-        data = resp.content
-    if expected and hashlib.sha256(data).hexdigest() != expected.lower():
-        raise HTTPException(status_code=502, detail=f"{origin} 的 sha256 对不上，拒绝安装")
-    if not expected:
-        raise HTTPException(status_code=422,
-                            detail="拿不到这个安装包的 sha256，拒绝安装：请给 main_apk_sha256，或改用 install-apk 上传")
+        data = await _download_checked(client, url, expected, origin)
     return data, origin
+
+
+async def _fetch_aerial_apk() -> tuple:
+    """aerial-tv（MIT）最新正式版的 aerial-standard.apk，GitHub digest 校验。
+
+    guard 变体不装——那是它给「拒装 HOME 包」机型的接管方案，对应我们的 P4。"""
+    async with httpx.AsyncClient(transport=http_transport(GITHUB_SERVICE), timeout=600.0,
+                                 follow_redirects=True) as client:
+        releases = (await client.get(AERIAL_RELEASES_API, params={"per_page": 20})).json()
+        if not isinstance(releases, list):
+            raise HTTPException(status_code=502, detail="aerial-tv 的 Release 列表拿不到，稍后再试")
+        for rel in releases:
+            if rel.get("draft") or rel.get("prerelease"):
+                continue
+            for asset in rel.get("assets", []):
+                if asset.get("name") == AERIAL_ASSET:
+                    digest = asset.get("digest") or ""
+                    sha = digest.split(":", 1)[1] if digest.startswith("sha256:") else None
+                    url = asset["browser_download_url"]
+                    origin = f"aerial-tv {rel.get('tag_name', '')} 的 {AERIAL_ASSET}"
+                    data = await _download_checked(client, url, sha, origin)
+                    return data, origin
+    raise HTTPException(status_code=502, detail="aerial-tv 最近的正式 Release 里没有 aerial-standard.apk")
 
 
 def build_router(store: TvStore) -> APIRouter:
@@ -236,25 +278,31 @@ def build_router(store: TvStore) -> APIRouter:
         return _ok(res.pop("level_note", "摸底完成"), **res)
 
     @router.post("/install", operation_id="plugins.tv-home.install",
-                 summary="装桌面壳；MovieClaw 主 App 用 main_apk_url（默认取最新正式版）")
+                 summary="装桌面壳（shell=movieclaw 默认 / aerial）；MovieClaw 主 App 用 main_apk_url（默认取最新正式版）")
     async def install(body: InstallBody) -> dict:
+        if body.shell not in ops.SHELL_PKGS:
+            raise HTTPException(status_code=422, detail=f"shell 只支持 {'、'.join(ops.SHELL_PKGS)}")
         main_bytes, origin = None, None
         if body.main_apk_url is not None or body.main_apk_sha256 is not None:
             main_bytes, origin = await _fetch_main_apk(body)
+        if body.shell == "movieclaw":
+            shell_bytes, shell_note = _shell_apk(), "随插件包"
+        else:
+            shell_bytes, shell_note = await _fetch_aerial_apk()
         record = await store.load_record_for_host(body.host)
 
         def fn(link):
             snap = ops.snapshot(link, body.host)
             if main_bytes is not None:
                 ops.install_main(link, main_bytes)
-            ops.install_shell(link, _shell_apk())
+            ops.install_shell(link, shell_bytes, body.shell)
             return snap
 
         snap = await _with_link(store, body.host, body.port, fn)
         record = merge_record(record, snap)
         await store.save_record(snap["serial"], record)
         say = ("MovieClaw 主 App 已装上（来源：" + origin + "）。" if main_bytes else "") \
-            + "桌面壳已装好，接着调 home 换桌面。"
+            + f"桌面壳（{ops.SHELL_PKGS[body.shell][0]}，{shell_note}）已装好，接着调 home（shell={body.shell}）换桌面。"
         return _ok(say, serial=snap["serial"])
 
     @router.post("/install-apk", operation_id="plugins.tv-home.install-apk",
@@ -280,10 +328,12 @@ def build_router(store: TvStore) -> APIRouter:
         return _ok("MovieClaw 主 App（上传的 APK）与桌面壳都装好了，接着调 home 换桌面。", serial=snap["serial"])
 
     @router.post("/home", operation_id="plugins.tv-home.home", summary="换桌面（七步，失败回滚）")
-    async def home(body: HostBody) -> dict:
-        shell_apk = _shell_apk()
+    async def home(body: HomeBody) -> dict:
+        if body.shell not in ops.SHELL_PKGS:
+            raise HTTPException(status_code=422, detail=f"shell 只支持 {'、'.join(ops.SHELL_PKGS)}")
+        shell_apk = _shell_apk() if body.shell == "movieclaw" else None
         record = await store.load_record_for_host(body.host)
-        res = await _with_link(store, body.host, body.port, ops.run_home, record, shell_apk)
+        res = await _with_link(store, body.host, body.port, ops.run_home, record, shell_apk, body.shell)
         await store.save_record(res["serial"], res["record"])
         if res.get("rescue"):
             await store.save_rescue(res["serial"], res["record"], None)

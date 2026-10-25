@@ -2,6 +2,8 @@
 
 SHELL_PKG = "io.movieclaw.androidtv.home"
 SHELL_ACTIVITY = SHELL_PKG + "/.HomeActivity"
+AERIAL_PKG = "app.orchard.tv"
+AERIAL_ACTIVITY = AERIAL_PKG + "/.MainActivity"
 MAIN_PKG = "io.movieclaw.androidtv"
 DANGBEI = "com.dangbei.TVHomeLauncher/com.dangbei.leard.leradlauncher.ui.sony.main.MainActivity"
 TVLAUNCHER = "com.google.android.tvlauncher/com.google.android.tvlauncher.HomeActivity"
@@ -120,8 +122,10 @@ class FakeLink:
             pkg = command.split()[-1]
             self.disabled.add(pkg)
             if self.resolved and self.resolved.split("/")[0] == pkg:
-                # 当家的厂商桌面被停用后，HOME 只剩桌面壳能当
-                self.resolved = SHELL_ACTIVITY
+                # 当家的厂商桌面被停用后，HOME 落到剩下的最高优先级候选（一般是桌面壳）
+                viable = [c for c in self.candidates
+                          if c["component"].split("/")[0] not in self.disabled and c.get("enabled", True)]
+                self.resolved = max(viable, key=lambda c: c.get("priority") or 0)["component"] if viable else None
             return ""
         if command.startswith("pm enable "):
             self.disabled.discard(command.split()[-1])
@@ -140,9 +144,10 @@ class FakeLink:
         if command.startswith("am start -W"):
             if self.am_start_output is not None:
                 return self.am_start_output
-            if SHELL_PKG in self.installed:
+            pkg = command.split(" -n ")[1].split()[0].split("/")[0]
+            if pkg in self.installed:
                 return "Status: ok\nLaunchState: COLD\nTotalTime: 671\nWaitTime: 690"
-            return "Error: Activity class {io.movieclaw.androidtv.home/.HomeActivity} does not exist."
+            return f"Error: Activity class {{{pkg}/…}} does not exist."
         if command.startswith("input keyevent"):
             if self.foreground_after_home is not None:
                 self.foreground = self.foreground_after_home
