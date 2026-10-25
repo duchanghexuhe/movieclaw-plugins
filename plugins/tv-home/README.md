@@ -87,6 +87,9 @@ agent 每一步都会说清它在做什么、需要你做什么；出错会停�
 - 换桌面顺序、防护规则与还原顺序沿用 [Gathin23/cleanyourtv](https://github.com/Gathin23/cleanyourtv)（MIT）踩出来的做法：
   不卸载只停用（`pm disable-user`）、还原先启用厂商桌面再卸桌面壳、状态记录第一次不被覆盖、
   `pm install -r` 代替会卡在屏幕确认的 `adb install`。本仓库只借规则与格式，不依赖它的代码。
+- [pengchujin/aerial-tv](https://github.com/pengchujin/aerial-tv)（MIT）：`set-home-activity --user 0` 的写法、
+  前台探测的 `mCurrentFocus` 兜底、接管模式的蓝本与 `pm grant` / `appops` 授权清单（详见主仓库设计稿 §12）。
+  它的机型知识只作核对来源，不作记录源。
 - `cmd package query-activities` 的解析按「`priority=N` 行 + 紧随的 `包名/类名` 行」的形状写，容忍大小写与多余空白；
   P1 真机验收（坚果 N1 / 模拟器）时以真实输出校对。
 - 已知上游坑：Windows 上 `pack.py --lock` 会把锁文件写成 CRLF，而服务器 `read_lock` 按原字节算哈希、

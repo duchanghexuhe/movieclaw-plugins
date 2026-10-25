@@ -57,7 +57,7 @@ class RestoreTest(unittest.TestCase):
         uninstall_at = link.calls_of("pm uninstall " + SHELL_PKG)[0]
         index_uninstall = link.shell_calls.index(uninstall_at)
         self.assertLess(enable_at, index_uninstall, "顺序不能反：先启用厂商桌面再卸桌面壳")
-        self.assertTrue(link.called(f"cmd package set-home-activity {TVLAUNCHER}"))
+        self.assertTrue(link.called(f"cmd package set-home-activity --user 0 {TVLAUNCHER}"))
         self.assertNotIn(SHELL_PKG, link.installed)
         self.assertIn(MAIN_PKG, link.installed, "MovieClaw 默认保留")
 

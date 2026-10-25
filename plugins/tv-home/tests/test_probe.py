@@ -61,5 +61,30 @@ class ProbeTest(unittest.TestCase):
         self.assertTrue(res["shell"]["installed"])
 
 
+class ForegroundTest(unittest.TestCase):
+    """前台探测：ResumedActivity 优先，mCurrentFocus 兜底（aerial-tv 的做法）。"""
+
+    def test_resumed_activity_wins(self):
+        link = FakeLink()
+        link.shell = lambda cmd, timeout_s=60.0: (
+            "  mCurrentFocus=Window{ab12 u0 com.other.app/com.other.app.Popup}\n"
+            "  mResumedActivity: ActivityRecord{cd34 u0 io.movieclaw.androidtv/.MainActivity t9}\n")
+
+        self.assertEqual(ops.foreground_pkg(link), "io.movieclaw.androidtv")
+
+    def test_current_focus_fallback(self):
+        link = FakeLink()
+        link.shell = lambda cmd, timeout_s=60.0: (
+            "  mCurrentFocus=Window{ab12 u0 io.movieclaw.androidtv/io.movieclaw.androidtv.MainActivity}\n")
+
+        self.assertEqual(ops.foreground_pkg(link), "io.movieclaw.androidtv")
+
+    def test_non_activity_focus_is_ignored(self):
+        link = FakeLink()
+        link.shell = lambda cmd, timeout_s=60.0: "  mCurrentFocus=Window{ab12 u0 NotificationShade}\n"
+
+        self.assertIsNone(ops.foreground_pkg(link))
+
+
 if __name__ == "__main__":
     unittest.main()

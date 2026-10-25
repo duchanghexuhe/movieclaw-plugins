@@ -117,10 +117,18 @@ def home_role(link) -> "str | None":
 
 
 def foreground_pkg(link) -> "str | None":
-    """注入主页键后前台是谁（设计稿 §8.4 第 6 步）。"""
+    """注入主页键后前台是谁（设计稿 §8.4 第 6 步）。
+
+    先看 ResumedActivity / topResumedActivity；某些固件上 dumpsys 只有 mCurrentFocus
+    可用（aerial-tv 的做法），作为兜底。"""
     dump = link.shell("dumpsys activity activities")
     for line in dump.splitlines():
         if "ResumedActivity" in line or "topResumedActivity" in line:
+            m = COMPONENT_RE.search(line)
+            if m:
+                return m.group(1)
+    for line in dump.splitlines():
+        if "mCurrentFocus" in line:
             m = COMPONENT_RE.search(line)
             if m:
                 return m.group(1)
@@ -266,8 +274,8 @@ def run_home(link, record: "dict | None", shell_apk_bytes: bytes) -> dict:
         return failed(f"桌面壳单独启动失败（am start -W 没有返回 Status: ok）：\n{out.strip()}")
     link.shell(f"am force-stop {SHELL_PKG}")
 
-    # 第 4 步：设默认桌面
-    link.shell(f"cmd package set-home-activity {SHELL_ACTIVITY}")
+    # 第 4 步：设默认桌面（--user 0 照 aerial-tv 的写法，显式钉住用户）
+    link.shell(f"cmd package set-home-activity --user 0 {SHELL_ACTIVITY}")
     resolved = resolve_home(link)
     disabled_pkg = None
 
@@ -312,7 +320,7 @@ def run_home(link, record: "dict | None", shell_apk_bytes: bytes) -> dict:
             notes.append(f"已重新启用 {disabled_pkg}；如需彻底还原再执行 restore。")
         original = record.get("original_home")
         if original:
-            link.shell(f"cmd package set-home-activity {original}")
+            link.shell(f"cmd package set-home-activity --user 0 {original}")
             notes.append(f"已尝试把默认桌面设回 {original}。")
         return failed(f"注入主页键后前台是 {fg or '未知'}，不是 MovieClaw，已回滚。"
                       f"请再按一下真遥控器的主页键确认；真遥控器也回不去的话，这台的主页键被厂商固定了（C 级）。",
@@ -363,7 +371,7 @@ def run_restore(link, record: "dict | None", uninstall_main: bool = False) -> di
             steps.append(f"已重新启用 {pkg}")
     original = record.get("original_home")
     if original:
-        link.shell(f"cmd package set-home-activity {original}")
+        link.shell(f"cmd package set-home-activity --user 0 {original}")
         steps.append(f"已把默认桌面设回 {original}")
     if pm_path(link, SHELL_PKG) is not None:
         out = link.shell(f"pm uninstall {SHELL_PKG}")

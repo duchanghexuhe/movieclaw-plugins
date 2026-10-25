@@ -96,7 +96,7 @@ class HomeDisableTest(unittest.TestCase):
         res = ops.run_home(link, None, APK)
         self.assertFalse(res["ok"])
         self.assertTrue(link.called("pm enable com.google.android.tvlauncher"), "验证失败要重新启用")
-        self.assertTrue(link.called(f"cmd package set-home-activity {TVLAUNCHER}"),
+        self.assertTrue(link.called(f"cmd package set-home-activity --user 0 {TVLAUNCHER}"),
                         "回滚要把默认桌面设回原来的")
         self.assertTrue(res["rescue"])
 
