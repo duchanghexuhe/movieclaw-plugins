@@ -38,7 +38,7 @@ class LayoutStore(context: Context) {
         if (!initialized) {
             order = all.sortedWith(Defaults.comparator).map { it.key }
             // MovieClaw fork（设计稿 §13.2）：首启把 MovieClaw 预置到第一格，其余按默认排序；未安装时无害
-            order = listOf("io.movieclaw.androidtv", *order.filter { it != "io.movieclaw.androidtv" })
+            order = listOf("io.movieclaw.androidtv") + order.filter { it != "io.movieclaw.androidtv" }
             hidden = Defaults.hidden(byKey.keys)
             initialized = true
         }

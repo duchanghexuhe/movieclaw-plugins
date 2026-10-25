@@ -227,10 +227,20 @@ async def _fetch_main_apk(body: InstallBody) -> tuple:
     return data, origin
 
 
-async def _fetch_aerial_apk() -> tuple:
-    """aerial-tv（MIT）最新正式版的 aerial-standard.apk，GitHub digest 校验。
+def _aerial_apk() -> "bytes | None":
+    """包里的 fork APK（「MovieClaw 桌面」aerial 版，§13.2）：发版时放进 apk/ 再打包，不入库。"""
+    path = Path(__file__).resolve().parent.parent / "apk" / "AerialMovieClaw.apk"
+    return path.read_bytes() if path.is_file() else None
 
-    guard 变体不装——那是它给「拒装 HOME 包」机型的接管方案，对应我们的 P4。"""
+
+async def _fetch_aerial_apk() -> tuple:
+    """上游 aerial-tv（MIT）最新正式版的 aerial-standard.apk，GitHub digest 校验。
+
+    guard 变体不装——那是它给「拒装 HOME 包」机型的接管方案，对应我们的 P4。
+    仅当插件包里没有 fork 产物（apk/AerialMovieClaw.apk）时才走这里。"""
+    bundled = _aerial_apk()
+    if bundled is not None:
+        return bundled, "「MovieClaw 桌面」aerial 版（随插件包）"
     async with httpx.AsyncClient(transport=http_transport(GITHUB_SERVICE), timeout=600.0,
                                  follow_redirects=True) as client:
         releases = (await client.get(AERIAL_RELEASES_API, params={"per_page": 20})).json()
