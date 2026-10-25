@@ -507,3 +507,24 @@ def check_port_closed(host: str, port: int = 5555, timeout_s: float = 5.0) -> bo
     finally:
         s.close()
     return False
+
+
+# ---- aerial-tv 的配置注入（设计稿 §13.2）----
+# ConfigReceiver 是 ADB 广播入口，manifest 要求发送方持 WRITE_SECURE_SETTINGS——adb shell 满足。
+AERIAL_CONFIG_BROADCAST = (
+    "am broadcast -a app.orchard.tv.CONFIG -n app.orchard.tv/.guard.ConfigReceiver"
+)
+AERIAL_SCREENSAVER_MODES = ("aerial", "photos", "clock", "videos", "system")
+
+
+def configure_aerial_command(screensaver: str = "aerial") -> str:
+    """装完 aerial 壳后的配置广播：屏保模式（默认航拍）。布局保持 aerial 出厂，不加主观选项。"""
+    if screensaver not in AERIAL_SCREENSAVER_MODES:
+        raise ValueError(f"屏保模式只支持 {'、'.join(AERIAL_SCREENSAVER_MODES)}")
+    return f"{AERIAL_CONFIG_BROADCAST} --es screensaver {screensaver}"
+
+
+def configure_aerial(link, screensaver: str = "aerial") -> None:
+    out = link.shell(configure_aerial_command(screensaver))
+    if "Error" in out or "Exception" in out:
+        raise RuntimeError(f"aerial 配置广播没有生效：\n{out.strip()}")

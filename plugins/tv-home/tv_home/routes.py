@@ -296,13 +296,20 @@ def build_router(store: TvStore) -> APIRouter:
             if main_bytes is not None:
                 ops.install_main(link, main_bytes)
             ops.install_shell(link, shell_bytes, body.shell)
+            if body.shell == "aerial":
+                # 设计稿 §13.2：装完经 ADB 广播把屏保模式配置好（默认航拍），用户不用进个性化页
+                ops.configure_aerial(link)
             return snap
 
         snap = await _with_link(store, body.host, body.port, fn)
         record = merge_record(record, snap)
         await store.save_record(snap["serial"], record)
-        say = ("MovieClaw 主 App 已装上（来源：" + origin + "）。" if main_bytes else "") \
-            + f"桌面壳（{ops.SHELL_PKGS[body.shell][0]}，{shell_note}）已装好，接着调 home（shell={body.shell}）换桌面。"
+        say = (
+            ("MovieClaw 主 App 已装上（来源：" + origin + "）。" if main_bytes else "")
+            + f"桌面壳（{ops.SHELL_PKGS[body.shell][0]}，{shell_note}）已装好"
+            + ("，屏保模式已配置（航拍）" if body.shell == "aerial" else "")
+            + f"，接着调 home（shell={body.shell}）换桌面。"
+        )
         return _ok(say, serial=snap["serial"])
 
     @router.post("/install-apk", operation_id="plugins.tv-home.install-apk",
