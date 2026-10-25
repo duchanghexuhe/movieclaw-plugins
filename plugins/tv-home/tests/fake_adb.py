@@ -23,18 +23,28 @@ MEMINFO_TEXT = "MemTotal:       2369656 kB\nMemAvailable:     740216 kB\n"
 
 
 def candidates_text(candidates) -> str:
-    """按 query-activities 的形状拼：每个候选一行 priority + 一行组件。"""
-    out = ["opPackageName=null:"]
-    for c in candidates:
+    """按 API 34 的 query-activities 形状拼（name=/packageName= 分行 + enabled）。"""
+    out = [f"{len(candidates)} activities found:"]
+    for i, c in enumerate(candidates):
+        pkg, _, cls = c["component"].partition("/")
         priority = c.get("priority")
-        out.append(f"priority={priority if priority is not None else 0} preferredOrder=0 match=0x108000 "
-                   f"specificIndex=0 isDefault=false")
-        out.append(f"  {c['component']}")
+        out.append(f"  Activity #{i}:")
+        out.append(f"    priority={priority if priority is not None else 0} preferredOrder=0 "
+                   f"match=0x108000 specificIndex=-1 isDefault=false")
+        out.append("    ActivityInfo:")
+        out.append(f"      name={cls}")
+        out.append(f"      packageName={pkg}")
+        out.append(f"      enabled={'false' if c.get('enabled') is False else 'true'} exported=true directBootAware=false")
     return "\n".join(out)
 
 
 def resolve_text(component: str) -> str:
-    return f"priority=0 preferredOrder=0 match=0x108000 specificIndex=0 isDefault=true\n  {component}"
+    pkg, _, cls = component.partition("/")
+    return ("priority=0 preferredOrder=0 match=0x108000 specificIndex=-1 isDefault=true\n"
+            "ActivityInfo:\n"
+            f"  name={cls}\n"
+            f"  packageName={pkg}\n"
+            "  enabled=true exported=true directBootAware=false\n")
 
 
 def dumpsys_foreground(pkg: str) -> str:

@@ -48,20 +48,68 @@ def parse_props(text: str) -> dict:
 
 
 def parse_candidates(text: str) -> list:
-    """解析 ``cmd package query-activities`` 的输出。
+    """解析 ``cmd package query-activities`` 的输出，兼容两种形状。
 
-    每个候选是一行 ``包名/类名``，优先级取它前面最近的 ``priority=N`` 标记；
-    解析不出优先级时记 None（按 0 处理，但保留标记）。
+    - 老版本：``priority=N`` 一行 + 裸 ``包名/类名`` 一行；
+    - API 34 起：``Activity #N:`` 块里 ``priority=N`` + ``ActivityInfo:`` 后跟
+      ``name=类`` / ``packageName=包`` / ``enabled=…`` 分行（应用信息块嵌在里面，不配对）。
+
+    组件级停用（enabled=false）的候选照样列出但带标记，换桌面判定时不算数。
     """
     out = []
-    pending = None
-    for line in text.splitlines():
+    priority = None
+    cur = None
+
+    def flush():
+        nonlocal cur
+        if cur and cur.get("pkg") and cur.get("name"):
+            out.append({
+                "component": _full_component(cur["pkg"], cur["name"]),
+                "priority": cur["priority"],
+                "enabled": cur["enabled"],
+            })
+        cur = None
+
+    for raw in text.splitlines():
+        line = raw.strip()
         pm = PRIORITY_RE.search(line)
         if pm:
-            pending = int(pm.group(1))
-        for pkg, cls in COMPONENT_RE.findall(line):
-            out.append({"component": _full_component(pkg, cls), "priority": pending})
-            pending = None
+            priority = int(pm.group(1))
+            if cur is not None:
+                cur["priority"] = priority
+        if line.startswith("Activity #"):
+            flush()
+            continue
+        if line.startswith("ActivityInfo:"):
+            flush()
+            cur = {"priority": priority, "enabled": True, "name": None, "pkg": None, "done": False}
+            continue
+        if cur is not None:
+            if line.startswith("enabled="):
+                cur["enabled"] = "enabled=false" not in line
+            elif cur["done"]:
+                continue
+            elif line.startswith("name="):
+                value = line[5:].strip()
+                if "/" in value:  # 个别固件 name=包/类 一行给全
+                    out.append({"component": value, "priority": cur["priority"], "enabled": cur["enabled"]})
+                    cur.update(name=None, pkg=None, done=True)
+                else:
+                    cur["name"] = value or None
+            elif line.startswith("packageName="):
+                cur["pkg"] = line[12:].strip() or None
+                if cur["name"] and cur["pkg"]:
+                    out.append({
+                        "component": _full_component(cur["pkg"], cur["name"]),
+                        "priority": cur["priority"],
+                        "enabled": cur["enabled"],
+                    })
+                    cur.update(name=None, pkg=None, done=True)
+        elif "/" in line:
+            for pkg, cls in COMPONENT_RE.findall(line):  # 形状 A：裸 包/类
+                out.append({"component": _full_component(pkg, cls), "priority": priority, "enabled": True})
+                priority = None  # 每个候选的优先级要有据可查，用掉即清
+    flush()
     return out
 
 
@@ -70,11 +118,33 @@ def _candidate_sort_key(c: dict):
 
 
 def parse_single_component(text: str) -> "str | None":
-    """从 resolve / 角色类输出里取最后一个 ``包名/类名``。"""
+    """从 resolve / 角色类输出里取组件。
+
+    形状 B（API 34 起）取 ``ActivityInfo:`` 后第一对 ``name=`` + ``packageName=``；
+    形状 A 取最后一个 ``包名/类名``。两样都沾不到返回 None。"""
+    name = pkg = None
     found = None
-    for line in text.splitlines():
-        for pkg, cls in COMPONENT_RE.findall(line):
-            found = _full_component(pkg, cls)
+    in_activity = False
+    for raw in text.splitlines():
+        line = raw.strip()
+        if line.startswith("ActivityInfo:"):
+            in_activity, name, pkg = True, None, None
+            continue
+        if in_activity:
+            if line.startswith("ApplicationInfo:"):
+                in_activity = False
+            elif line.startswith("name=") and name is None:
+                value = line[5:].strip()
+                name = value or None
+                if "/" in value:
+                    found = value
+            elif line.startswith("packageName=") and pkg is None:
+                pkg = line[12:].strip() or None
+                if name and pkg and found is None:
+                    return _full_component(pkg, name)
+        else:
+            for p, c in COMPONENT_RE.findall(line):
+                found = _full_component(p, c)
     return found
 
 
@@ -283,7 +353,8 @@ def run_home(link, record: "dict | None", shell_apk_bytes: bytes) -> dict:
         # 第 5 步：没生效，看是不是厂商桌面优先级更高、需要停用
         candidates = parse_candidates(link.shell(
             f"cmd package query-activities -a {MAIN_ACTION} -c {HOME_CATEGORY}"))
-        others = [c for c in candidates if c["component"].split("/")[0] != SHELL_PKG and _is_viable_home(c)]
+        others = [c for c in candidates
+                  if c["component"].split("/")[0] != SHELL_PKG and _is_viable_home(c) and c.get("enabled", True)]
         others.sort(key=_candidate_sort_key, reverse=True)
         if not others:
             return failed(f"设默认桌面没生效，又找不到能停用的厂商桌面（HOME 候选：{candidates}）。"
