@@ -32,6 +32,11 @@ def _html(body: str, title: str = "") -> dict[str, Any]:
     return {"status_code": 200, "text": f"<html>{head}<body>{body}</body></html>"}
 
 
+def _non_daily(published: list[tuple[Any, Any]]) -> list[tuple[Any, Any]]:
+    """除日报外的事件：日报每轮都发（收不收在通知设置），告警类断言要把它滤掉。"""
+    return [(name, payload) for name, payload in published if "report.daily" not in str(name)]
+
+
 class TestAdapters(unittest.TestCase):
     def test_nexusphp_plan_confirms_login_then_signs_in(self):
         steps = nexusphp_adapter(_site())
@@ -216,7 +221,7 @@ class TestRunnerRound(unittest.TestCase):
         result = asyncio.run(runner.run_round())
         self.assertEqual(result["skipped"], 1)
         self.assertEqual(result["failed"], 0)
-        self.assertEqual(events.published, [])
+        self.assertEqual(_non_daily(events.published), [])
         states = st.normalize(data.store[st.STATE_KEY])
         self.assertEqual(states["hdsky"]["outcome"], "skipped")
         self.assertFalse(states["hdsky"].get("alerted_expired"))
@@ -255,7 +260,7 @@ class TestRunnerRound(unittest.TestCase):
         result = asyncio.run(runner.run_round())
         self.assertEqual(result["signin"], 2)
         self.assertEqual(result["failed"], 0)
-        self.assertEqual(events.published, [])  # 无失效、日报默认关
+        self.assertEqual(_non_daily(events.published), [])  # 无失效告警
         # 两个站都走宿主代请求（base=web）
         self.assertTrue(all(c["base"] == "web" for c in ops.calls))
         self.assertEqual(len(ops.calls), 4)
@@ -295,7 +300,7 @@ class TestRunnerRound(unittest.TestCase):
         result = asyncio.run(runner.run_round())
         self.assertEqual(result["skipped"], 1)
         self.assertEqual(result["failed"], 0)
-        self.assertEqual(events.published, [])
+        self.assertEqual(_non_daily(events.published), [])
         self.assertEqual(ops.calls, [])  # 不借宿主会话，也不发任何请求
         states = st.normalize(data.store[st.STATE_KEY])
         self.assertEqual(states["mteam"]["outcome"], "skipped")
@@ -399,7 +404,6 @@ class TestRunnerRound(unittest.TestCase):
                 ("site.proxy.request", "chdbits", "index.php"): _html(_LOGGED_IN),
                 ("site.proxy.request", "chdbits", "attendance.php"): _html("签到成功，获得 10 魔力"),
             },
-            config=Settings(daily_report=True),
             sites=[
                 {"site_id": "hdsky", "usable": True, "auth_type": "cookie"},
                 {"site_id": "chdbits", "usable": True, "auth_type": "cookie"},
@@ -413,8 +417,8 @@ class TestRunnerRound(unittest.TestCase):
         self.assertEqual(reports[0].ok_count, 2)
         self.assertEqual(reports[0].signin_count, 2)
 
-    def test_consecutive_failures_alert_even_with_report_off(self):
-        # 日报默认关闭；连续失败必须另走一条默认开的通知，否则用户永远看不到
+    def test_consecutive_failures_alert_alongside_daily(self):
+        # 连续失败升级独立于日报：两条都发，升级靠「同一段失败只报一次」去重
         import asyncio
 
         runner, data, events, _ = self._runner(
@@ -437,7 +441,7 @@ class TestRunnerRound(unittest.TestCase):
         asyncio.run(runner.run_round())
         names = [str(name) for name, _ in events.published]
         self.assertIn("pt-keepalive.report.failures", names)
-        self.assertNotIn("pt-keepalive.report.daily", names)
+        self.assertIn("pt-keepalive.report.daily", names)  # 日报也发，失败明细带着
 
     def test_failure_alert_is_not_repeated_every_round(self):
         import asyncio
@@ -527,7 +531,7 @@ class TestRunnerRound(unittest.TestCase):
         detail = result["sites"]["hdsky"]["detail"]
         self.assertIn("两步验证码错误", detail)  # 宿主给的原因原样带上
         self.assertIn("Cookie", detail)  # 给出可行的做法
-        self.assertEqual(events.published, [])  # 不发失效告警
+        self.assertEqual(_non_daily(events.published), [])  # 不发失效告警
         states = st.normalize(data.store[st.STATE_KEY])
         self.assertEqual(states["hdsky"]["outcome"], "skipped")
 

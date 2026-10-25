@@ -101,10 +101,13 @@
 | 事件 | 触发 | 通知（`[[notifications]]`） | 默认 |
 |---|---|---|---|
 | `pt-keepalive.auth.expired` | 任一站点判定凭据失效（密码框/401/授权失败） | 「{site_name} 登录已失效」/「请在 设置→站点 更新该站凭据」 | 开（level=active） |
-| `pt-keepalive.report.daily` | 每轮跑完汇总（`daily_report` 开） | 「PT 保活日报：N 站在线」+ `{detail}` | 关（level=passive） |
+| `pt-keepalive.report.daily` | 每轮跑完汇总（始终发布） | 「PT 保活日报：N 站在线」+ `{detail}` | 关（level=passive） |
 | `pt-keepalive.report.failures` | 有站点连续 3 轮失败，每段失败只报一次 | 「有站点连续失败」+ `{detail}` | 开（level=active） |
 
-- 失败升级单独一条事件：日报默认关闭，不能靠它兜底，否则关掉日报的用户永远看不到失败。
+- 日报不设发布开关：收不收由「账号 → 通知」里每个人自己的开关决定——插件里再放一个
+  「发不发」开关，就成了两处互不知道的日报开关，都得开才有日报。
+- 失败升级单独一条事件：日报是 passive 汇总，连续失败需要能主动打断的告警（active），
+  两者独立发布、互不替代。
 - 失效告警去重：同一站点从「有告警」到「再次成功」期间只发一次（状态机记 `alerted_expired` 位）。
 - Cookie 失效恢复后（用户更新凭据、`site.verify` 通过）自动清零失败计数——插件下一轮
   读 `site.list` 看到 `usable=true` 即恢复正常。
@@ -130,5 +133,5 @@
 2. 插件 `site.list` 拿启用站点（usable 状态 + auth_type），`site.catalog` 补展示名；
 3. 逐站（串行，宿主每站限流 3s+ 托底）：适配器 → 步骤（代请求 + 判定）→ `site.proxy.request`；
 4. 状态机更新（PLUGIN_DATA，只存非敏感摘要）；
-5. 汇总：有失效 → 发 `auth.expired`；有连续失败 → 发 `report.failures`；日报开关开着 → 发 `report.daily`；
+5. 汇总：有失效 → 发 `auth.expired`；有连续失败 → 发 `report.failures`；每轮都发 `report.daily`；
 6. 全程日志（ctx.logger，中文，带 site_id），诊断页可查。

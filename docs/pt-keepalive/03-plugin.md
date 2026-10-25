@@ -218,19 +218,19 @@ API 判定在 `mteam.py`（`classify` / `classify_update`）：先看 HTTP 401/4
 | 事件 | 触发 | 通知 | 默认 |
 |---|---|---|---|
 | `pt-keepalive.auth.expired` | 凭据失效（同一失效期一次） | 「{site_name} 登录已失效」 | 开（active） |
-| `pt-keepalive.report.daily` | 每轮汇总（`daily_report=true`） | 「PT 保活日报：N 站在线」+ `{detail}` | 关（passive） |
+| `pt-keepalive.report.daily` | 每轮汇总（始终发布） | 「PT 保活日报：N 站在线」+ `{detail}` | 关（passive） |
 | `pt-keepalive.report.failures` | 有站点连续 3 轮失败，每段失败只发一次 | 「N 站连续失败」+ `{detail}` | 开（active） |
 
 通知模板只做字段替换、不拼接数组，所以 `DailyReport.detail` 在插件里先拼成一行；
-`failures` 保留结构化形式给 Webhook / 别的插件。日报默认关闭，失败升级因此走
-单独一条默认开的事件——否则关掉日报的用户永远看不到失败。
+`failures` 保留结构化形式给 Webhook / 别的插件。日报不设发布开关（收不收在
+「账号 → 通知」按人决定）；失败升级走单独一条默认开的事件——日报是 passive 汇总，
+连续失败需要能主动打断的告警，两者独立发布。
 
 ## 设置模型（settings.py）
 
 ```
 enabled: bool = True                    # 总开关（False 时任务跑空转，直接返回）
 signin_enabled: bool = True             # 签到动作开关（False → 只访问首页确认登录态）
-daily_report: bool = False              # 日报开关（失效/失败告警不受它控制）
 mteam_username: str = ""                # 馒头账号；留空 = 不做这一站
 mteam_password: SecretStr | None        # 加密保存、界面不回显
 mteam_totp_secret: SecretStr | None     # 两步验证的 Base32；otpauth:// 整条也认

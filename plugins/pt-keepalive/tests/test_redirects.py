@@ -29,7 +29,15 @@ from pt_keepalive.sites import (
     redirect_target,
 )
 
-from tests.test_runner import _LOGGED_IN, _FakeCtx, _FakeData, _FakeEvents, _FakeOpsClient, _html
+from tests.test_runner import (
+    _LOGGED_IN,
+    _FakeCtx,
+    _FakeData,
+    _FakeEvents,
+    _FakeOpsClient,
+    _html,
+    _non_daily,
+)
 
 _HDSKY = "https://hdsky.me"
 
@@ -239,7 +247,7 @@ class TestRedirectFollowing(unittest.TestCase):
         result = asyncio.run(runner.run_round())
         self.assertEqual(result["signin"], 1)
         self.assertEqual(result["failed"], 0)
-        self.assertEqual(events.published, [])
+        self.assertEqual(_non_daily(events.published), [])
         self.assertEqual(_paths(ops), ["index.php", "attendance.php", "/attendance.php?ref=daily"])
         followed = ops.calls[-1]  # 跟随的是同一个步骤：还是 GET、还是 web 域名
         self.assertEqual((followed["method"], followed["base"]), ("GET", "web"))
@@ -312,7 +320,7 @@ class TestRedirectFollowing(unittest.TestCase):
                 result = asyncio.run(runner.run_round())
                 self.assertEqual(result["failed"], 1)
                 self.assertIn("外部地址", result["sites"]["hdsky"]["detail"])
-                self.assertEqual(events.published, [])  # 一个跳转不足以断定凭据失效
+                self.assertEqual(_non_daily(events.published), [])  # 一个跳转不足以断定凭据失效
                 states = st.normalize(data.store[st.STATE_KEY])
                 self.assertFalse(states["hdsky"].get("alerted_expired"))
                 self.assertEqual(_paths(ops), ["index.php"])  # 不向目标发任何请求
@@ -324,7 +332,7 @@ class TestRedirectFollowing(unittest.TestCase):
         result = asyncio.run(runner.run_round())
         self.assertEqual(result["failed"], 1)
         self.assertIn("无法确认是同站", result["sites"]["hdsky"]["detail"])
-        self.assertEqual(events.published, [])
+        self.assertEqual(_non_daily(events.published), [])
         self.assertEqual(_paths(ops), ["index.php"])
 
     def test_redirect_loop_is_refused(self):
@@ -339,7 +347,7 @@ class TestRedirectFollowing(unittest.TestCase):
         result = asyncio.run(runner.run_round())
         self.assertEqual(result["failed"], 1)
         self.assertIn("环", result["sites"]["hdsky"]["detail"])
-        self.assertEqual(events.published, [])
+        self.assertEqual(_non_daily(events.published), [])
         self.assertEqual(_paths(ops), ["index.php", "/a?x=1", "/index.php"])
 
     def test_redirect_to_itself_forever_is_refused(self):
@@ -405,7 +413,7 @@ class TestRedirectFollowing(unittest.TestCase):
         result = asyncio.run(runner.run_round())
         self.assertEqual(result["failed"], 1)
         self.assertIn(f"超过 {MAX_REDIRECTS} 次", result["sites"]["hdsky"]["detail"])
-        self.assertEqual(events.published, [])
+        self.assertEqual(_non_daily(events.published), [])
         # 第 MAX_REDIRECTS + 1 跳不发
         self.assertEqual(
             _paths(ops), ["index.php"] + [f"/h{i}" for i in range(1, MAX_REDIRECTS + 1)]
@@ -422,7 +430,7 @@ class TestRedirectFollowing(unittest.TestCase):
                 result = asyncio.run(runner.run_round())
                 self.assertEqual(result["failed"], 1)
                 self.assertIn("没给目标地址", result["sites"]["hdsky"]["detail"])
-                self.assertEqual(events.published, [])
+                self.assertEqual(_non_daily(events.published), [])
                 self.assertEqual(_paths(ops), ["index.php"])
 
     def test_post_redirects_are_never_followed(self):

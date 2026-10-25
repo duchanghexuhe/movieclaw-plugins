@@ -343,16 +343,15 @@ class KeepaliveRunner:
         await self.data.set(STATE_KEY, states)
 
         failures = st.failure_summary(states)
-        if self.config.daily_report:
-            # 日报是用户主动开的常规汇总，失败明细已经包含在里面
-            await self._publish_report(summary, failures, DAILY_REPORT)
-        else:
-            pending = st.failure_summary(states, pending_only=True)
-            if pending:
-                # 连续失败是异常，日报关着也得让用户知道；同一段失败只报一次
-                await self._publish_report(summary, pending, FAILURE_REPORT)
-                states = st.mark_failure_alerted(states)
-                await self.data.set(STATE_KEY, states)
+        # 日报每轮都发；收不收由「账号 → 通知」里每个人自己的开关决定（默认关），
+        # 插件里不留第二个开关——两个开关互不知道，都得开才有日报，关哪个都静默无声。
+        await self._publish_report(summary, failures, DAILY_REPORT)
+        pending = st.failure_summary(states, pending_only=True)
+        if pending:
+            # 连续失败升级不依赖日报：同一段失败只报一次
+            await self._publish_report(summary, pending, FAILURE_REPORT)
+            states = st.mark_failure_alerted(states)
+            await self.data.set(STATE_KEY, states)
         summary["states"] = states
         logger.info(
             "保活轮完成：在线 %d（签到成功 %d）失败 %d 需人工 %d 跳过 %d",
@@ -392,7 +391,6 @@ class KeepaliveRunner:
         return {
             "enabled": self.config.enabled,
             "signin_enabled": self.config.signin_enabled,
-            "daily_report": self.config.daily_report,
             # 只报「填没填」，绝不回显账号密码
             "mteam_configured": mteam_credentials(self.config) is not None,
             "sites": {

@@ -24,11 +24,6 @@ class Settings(BaseModel):
         title="尝试每日签到",
         description="NexusPHP 系站点访问签到页并按页面提示判定；关闭后只确认登录态，不产生签到动作",
     )
-    daily_report: bool = Field(
-        default=False,
-        title="每天发保活日报",
-        description="每轮跑完发一条汇总通知；凭据失效告警不受此开关控制（始终发）",
-    )
     mteam_username: str = Field(
         default="",
         title="M-Team 账号",

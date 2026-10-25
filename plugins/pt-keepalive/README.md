@@ -76,7 +76,6 @@ Cookie 过期后要你重新从浏览器复制一次（一般几周到几个月�
 
 - `enabled` — 总开关。关闭后定时任务照常触发，但跑空轮、不访问任何站点。
 - `signin_enabled` — 尝试每日签到。关闭后只确认登录态，不请求签到页。
-- `daily_report` — 每天发保活日报。凭据失效告警不受它控制，始终发。
 - `mteam_username` / `mteam_password` / `mteam_totp_secret` — M-Team 登录信息（密码与
   TOTP 密钥加密保存、界面不回显；留空即不做这一站）。
 
@@ -89,6 +88,9 @@ Cookie 过期后要你重新从浏览器复制一次（一般几周到几个月�
 | `pt-keepalive.auth.expired` | 开（active） | 「{站点} 登录已失效」；同一失效期只发一次，恢复后清零 |
 | `pt-keepalive.report.daily` | 关（passive） | 在线 / 签到成功 / 失败 / 需人工 / 跳过各多少站；连续 3 轮失败的站点带明细 |
 | `pt-keepalive.report.failures` | 开（active） | 有站点连续 3 轮失败（每段失败只报一次） |
+
+日报每轮都会发布，收不收由「账号 → 通知」里的开关按人决定（默认关）——插件设置里
+没有日报开关，这里就是唯一的开关。
 
 ## 状态查询
 

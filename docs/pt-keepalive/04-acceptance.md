@@ -154,8 +154,9 @@
    - mteam：先登录（日志出现会话获取），再 `updateLastBrowse`；站内「最后浏览时间」刷新
      （用户肉眼核对，或下一轮 profile 里 lastBrowse 变化）；
    - 站点配置了代理时请求走代理（宿主出口层 / 插件出口日志核对）。
-4. **通知链路**：`pt-keepalive.report.daily` 事件触发 → App/IM 收到日报（标「来自 PT 站点保活」）；
-   偏好关闭日报 → 不再收；`auth.expired` 与 `report.failures` 独立于日报开关。
+4. **通知链路**：`pt-keepalive.report.daily` 事件每轮发布 → 「账号 → 通知」打开「PT 保活日报」的人
+   收到（App/IM，标「来自 PT 站点保活」）；偏好关闭 → 不再收；
+   `auth.expired` 与 `report.failures` 与日报各自独立发布。
 5. **失效告警流**：临时改坏某站凭据（或用已失效站点）→ 下一轮判定 auth_expired →
    收到一次告警（不是每轮一条）；修复凭据 + `POST /verify/{site_id}` → 下轮恢复正常，
    失败计数与告警位清零。

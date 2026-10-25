@@ -42,7 +42,7 @@ AUTH_EXPIRED = plugin_event(
     f"{PLUGIN_ID}.auth.expired", AuthExpired, title="PT 站点登录失效"
 )
 DAILY_REPORT = plugin_event(f"{PLUGIN_ID}.report.daily", DailyReport, title="PT 保活日报")
-#: 连续失败升级：日报默认关闭，失败不能靠它兜底，所以单独一条默认开
+#: 连续失败升级：日报是 passive 汇总，失败要能主动打断，所以单独一条默认开
 FAILURE_REPORT = plugin_event(
     f"{PLUGIN_ID}.report.failures", DailyReport, title="PT 站点保活连续失败"
 )
