@@ -1,0 +1,11 @@
+{
+  "author": "amzxyz",
+  "author_url": "https://github.com/amzxyz",
+  "license": "MIT",
+  "origin": "official",
+  "summary": "按明确条件自动通知、移除种子或调整下载器全局设置",
+  "category": "tools",
+  "homepage": "https://github.com/movieclaw/movieclaw-plugins/tree/main/plugins/strategy-linkage",
+  "icon": "icon.svg",
+  "screenshots": []
+}

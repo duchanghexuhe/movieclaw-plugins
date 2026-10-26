@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>策略联动</title>
+<style>
+:root{color-scheme:dark;--bg:#111214;--panel:#191b1f;--panel2:#24272d;--text:#f0f1f3;--muted:#a5a9b1;--line:#393d45;--accent:#b51e2b;--ok:#22c55e;--warn:#f0b429;--danger:#ff747d;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+*{box-sizing:border-box}
+body{margin:0;padding:22px;color:var(--text);background:var(--bg)!important;font-size:14px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:1px solid #41454d;border-radius:9px;background:#292c32!important;color:#f2f3f5;padding:9px 13px;transition:background .12s ease,border-color .12s ease}
+button:hover{border-color:var(--accent);background:#33373e!important}
+button.primary{background:#a91925!important;border-color:#c32935;color:#fff!important;font-weight:650}
+button.primary:hover{background:#c12632!important;border-color:#e0444f}
+button.danger{background:#321c20!important;border-color:#73343b;color:#ff9299}
+button.danger:hover{background:#482126!important}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #e0444f;outline-offset:2px}
+button:disabled{opacity:.55;cursor:not-allowed}
+input[type=text],input[type=number],select,textarea{width:100%;min-width:0;border:1px solid #41454d;border-radius:8px;background:#24272d!important;color:#f0f1f3!important;padding:9px 10px;outline:none}
+input::placeholder,textarea::placeholder{color:#9298a2;opacity:1}
+select option{background:#24272d;color:#f0f1f3}
+input:focus,select:focus,textarea:focus{border-color:#c32935}
+input[type=checkbox],input[type=radio]{accent-color:#d22c39}
+label{display:block;font-weight:600;margin:0 0 7px}
+.muted{color:var(--muted)}
+.tiny{font-size:12px;color:var(--muted);line-height:1.55}
+.top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px}
+.title{font-size:25px;font-weight:750;letter-spacing:-.4px}
+.sub{color:var(--muted);margin-top:5px;line-height:1.55}
+.actions,.section-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.badge{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:999px;padding:3px 8px;font-size:11px;color:var(--muted);white-space:nowrap}
+.badge.ok{color:var(--ok);border-color:#28623d}
+.badge.warn{color:#f5c44e;border-color:#6b5523}
+.badge.bad{color:var(--danger);border-color:#73343b}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.card{border:1px solid var(--line);border-radius:13px;background:var(--panel)!important;padding:15px;min-width:0}
+.metric{font-size:23px;font-weight:750;margin-top:5px}
+.section{margin:15px 0}
+.section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.section-head h2{font-size:16px;margin:0}
+.settings{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.setting{display:flex;align-items:flex-start;gap:9px}
+.setting input{margin-top:4px}
+.setting b{display:block;font-size:13px}
+.setting small{display:block;color:var(--muted);font-size:12px;line-height:1.45;margin-top:3px}
+.rule-list{display:grid;gap:10px}
+.rule{border:1px solid var(--line);border-radius:13px;background:var(--panel)!important;padding:15px}
+.rule-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.rule-name{font-size:15px;font-weight:700}
+.rule-tags{display:flex;gap:6px;flex-wrap:wrap;margin:9px 0}
+.rule-desc{color:var(--muted);line-height:1.6;font-size:12px}
+.rule-actions{display:flex;gap:6px;flex-wrap:wrap}
+.empty{padding:26px;text-align:center;border:1px dashed var(--line);border-radius:12px;background:#191b1f;color:var(--muted)}
+.logic{display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin:8px 0 13px}
+.logic strong{color:var(--text)}
+.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:11px;background:#15171a}
+table{border-collapse:collapse;width:100%;min-width:700px;background:#15171a}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid #30343a;font-size:12px;vertical-align:top}
+th{color:#c4c8cf;font-weight:600;background:#24272d}
+tr:last-child td{border-bottom:0}
+.status{padding:12px;border-radius:10px;background:#24272d!important;border:1px solid #393d45;margin:10px 0;white-space:pre-wrap;line-height:1.5}
+.status.error{color:#ff858d;border-color:#73343b}
+.status.ok{color:#a7e6b8;border-color:#28623d}
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:10;display:none;align-items:center;justify-content:center;padding:18px}
+.modal-backdrop.open{display:flex}
+.modal{width:min(920px,100%);max-height:94vh;overflow:auto;border:1px solid #41454d;border-radius:16px;background:#191b1f!important;color:#f0f1f3!important;box-shadow:0 20px 70px #000;padding:20px;isolation:isolate}
+.modal h2{margin:0 0 6px;font-size:20px}
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.field{min-width:0}
+.full{grid-column:1/-1}
+.choices{display:flex;flex-wrap:wrap;gap:7px;padding:8px;border:1px solid #343840;border-radius:9px;background:#202328}
+.choice{display:flex;align-items:center;gap:6px;padding:7px 9px;border:1px solid #41454d;border-radius:8px;background:#292c32;color:#f0f1f3;font-weight:400;margin:0}
+.choice input{margin:0}
+.choice.disabled{opacity:.48;cursor:not-allowed}
+.site-choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:2px;max-height:200px;overflow:auto;padding:7px;border:1px solid #343840;border-radius:8px;background:#202328}
+.site-choice{display:flex;align-items:center;gap:6px;padding:4px 5px;border:0;border-radius:4px;background:transparent;color:#eceef1;margin:0;font-weight:400;min-width:0;cursor:pointer}
+.site-choice:hover{background:#30343a}
+.site-choice input{width:13px;height:13px;margin:0;flex:0 0 13px}
+.site-meta{display:block;min-width:0}
+.site-name{font-weight:400;line-height:1.4;overflow-wrap:anywhere}
+.site-id{font-size:11px;color:#a5a9b1;overflow-wrap:anywhere}
+.site-choice.unusable{opacity:.72}
+.inline-link{display:inline;border:0!important;background:transparent!important;padding:0;color:#ff626d;text-decoration:underline;text-underline-offset:2px;font-weight:650}
+.inline-link:hover{background:transparent!important;border-color:transparent!important}
+.select-multi{height:138px}
+.modal-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
+.warning{border-left:3px solid #b88c25;padding:9px 12px;background:#2b281f!important;border-radius:0 8px 8px 0;color:#d5d0c4;font-size:12px;line-height:1.55}
+.preview-list{display:grid;gap:8px;margin-top:12px}
+.preview-item{border:1px solid #393d45;border-radius:9px;background:#202328;padding:10px}
+.preview-item b{display:block;margin-bottom:5px}
+.footer-note{margin-top:18px;color:var(--muted);font-size:11px;line-height:1.6}
+@media(max-width:800px){body{padding:14px}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.settings{grid-template-columns:repeat(2,minmax(0,1fr))}.top{flex-direction:column}.actions{width:100%}.actions button{flex:1}.form-grid{grid-template-columns:1fr}.full{grid-column:auto}.modal{padding:15px}.site-choices{grid-template-columns:1fr;max-height:200px}.select-multi{height:120px}}
+@media(max-width:420px){.settings{grid-template-columns:1fr}.rule-top{flex-direction:column}.rule-actions{width:100%}.rule-actions button{flex:1}.section-head{align-items:flex-start}.section-actions{justify-content:flex-end}.section-actions button{white-space:nowrap}.top .actions{display:grid;grid-template-columns:1fr 1fr}.top .actions button{flex:auto}}
+
+.condition-legend{color:#b8dcff;border-color:#315c83;background:#17283a}
+.action-legend{color:#b9f0ca;border-color:#326b45;background:#1b3023}
+.logic-op-inline{color:#f0f1f3;font-size:15px;padding:0 2px}
+.top-controls{justify-content:flex-end;align-items:center;gap:8px;flex-wrap:wrap}
+.top-toggle{display:inline-flex;align-items:center;gap:6px;margin:0;padding:8px 10px;border:1px solid #41454d;border-radius:9px;background:#202328;color:#f0f1f3;white-space:nowrap;cursor:pointer}
+.top-toggle input{width:14px;height:14px;margin:0;flex:0 0 14px}
+.scan-interval{display:inline-flex;align-items:center;gap:5px;margin:0;color:var(--muted);font-size:12px;white-space:nowrap}
+.scan-interval input{width:68px;padding:8px 6px;text-align:center}
+.rule-expression{display:flex;flex-direction:column;align-items:stretch;gap:8px;margin:11px 0 9px;width:100%;min-width:0}
+.expression-row{display:flex;align-items:flex-start;gap:8px;width:100%;min-width:0}
+.conditions-row{width:100%}
+.expression-conditions{display:flex;align-items:flex-start;gap:6px;flex-wrap:wrap;flex:1;width:100%;min-width:0}
+.expression-label{font-size:11px;color:var(--muted);margin-right:2px;white-space:nowrap;flex:0 0 66px;padding-top:8px}
+.condition-chip{display:inline-flex;align-items:center;border:1px solid #315c83;background:#17283a;color:#c6e3ff;border-radius:8px;padding:6px 9px;font-size:12px;line-height:1.35;max-width:100%;overflow-wrap:anywhere}
+.logic-plus{font-weight:800;color:#d7dbe2;font-size:16px;padding:0 1px}
+.action-row{padding-top:8px;border-top:1px solid #30343a}
+.logic-equals{display:flex;align-items:center;justify-content:center;flex:0 0 66px;min-width:66px;font-size:20px;font-weight:800;color:#d7dbe2;line-height:34px}
+.action-chip{display:flex;align-items:center;gap:7px;border:1px solid #326b45;background:#1b3023;color:#c9f3d4;border-radius:9px;padding:8px 11px;font-size:12px;flex:1;width:100%;min-width:0;overflow-wrap:anywhere}
+.action-chip .action-caption{font-size:10px;letter-spacing:.2px;color:#8fcea1;white-space:nowrap}
+.action-chip.danger{border-color:#78363d;background:#351d21;color:#ffc4c8}
+.action-chip.danger .action-caption{color:#f08e96}
+.action-chip.global{border-color:#59458a;background:#27203a;color:#ded2ff}
+.action-chip.global .action-caption{color:#b9a7f3}
+.rule-desc{color:var(--muted);line-height:1.6;font-size:12px}
+@media(max-width:800px){.top-controls{width:100%;justify-content:flex-start}.top-controls button{flex:0 0 auto}}
+@media(max-width:600px){.rule-expression{gap:7px}.expression-conditions{min-width:0}.expression-label,.logic-equals{flex-basis:66px;min-width:66px}.action-chip{width:auto}}
+@media(max-width:420px){.top .actions.top-controls{display:grid;grid-template-columns:auto minmax(0,1fr);width:100%}.top .scan-interval{justify-content:flex-end}.top .actions.top-controls button{width:100%;flex:auto}.top .top-toggle{justify-self:start}}
+
+</style>
+</head>
+<body>
+<header class="top">
+  <div><div class="title">策略联动</div><div class="sub">站点、资源类别、事件与时间条件组合成自动化策略。<b>规则之间 OR，单条规则内部 AND。</b></div></div>
+  <div class="actions top-controls">
+    <label class="top-toggle" title="勾选时只模拟；取消勾选后，后台扫描和立即执行都会执行真实动作"><input id="dryRun" type="checkbox" checked><span>模拟</span></label>
+    <label class="scan-interval" for="scanInterval"><span>扫描间隔</span><input id="scanInterval" type="number" min="30" max="3600" step="30" value="60"><span>秒</span></label>
+    <button id="refreshBtn" type="button">刷新</button>
+    <button class="primary" id="runBtn" type="button">模拟运行</button>
+  </div>
+</header>
+<section class="section" id="previewSection">
+  <div class="section-head"><h2>运行结果与诊断</h2><span class="tiny" id="resultModeHint">模拟模式：只演练，不修改下载器</span></div>
+  <div id="previewResults" class="card muted" role="status" aria-live="polite">点击右上角按钮检查规则命中、未命中原因和动作预检；是否实际执行由“模拟”勾选决定。</div>
+</section>
+<div class="grid">
+  <div class="card"><div class="muted">规则总数</div><div class="metric" id="metricRules">—</div><div class="tiny" id="metricEnabled">等待加载</div></div>
+  <div class="card"><div class="muted">已跟踪任务</div><div class="metric" id="metricTracked">—</div><div class="tiny">基于可靠事件记录</div></div>
+  <div class="card"><div class="muted">最近运行命中</div><div class="metric" id="metricMatched">—</div><div class="tiny" id="metricLastRun">尚无评估记录</div></div>
+</div>
+<div id="statusMessage" class="status" hidden></div>
+<section class="section">
+  <div class="section-head"><h2>策略规则</h2><div class="section-actions"><span class="badge" id="rulesBadge">0 条</span><button class="primary" id="newRuleBtn">＋ 新建规则</button></div></div>
+  <div class="logic"><span class="badge condition-legend">条件</span><span>条件之间用 <b class="logic-op-inline">+</b> 表示 AND；未配置的条件不参与判断</span><span style="font-size:18px">·</span><span class="badge action-legend">动作</span><span><b class="logic-op-inline">→</b> 满足条件后执行；不同规则之间是 OR</span></div>
+  <div class="rule-list" id="ruleList"><div class="empty">正在读取规则…</div></div>
+</section>
+<section class="section">
+  <div class="section-head"><h2>最近执行记录 <span class="tiny" id="historyCountLabel">默认显示最近 10 条</span></h2><div class="section-actions"><button id="historyToggleBtn" hidden>查看全部</button><button class="danger" id="clearHistoryBtn" type="button">清空日志</button></div></div>
+  <div class="table-wrap"><table><thead><tr><th>时间</th><th>规则</th><th>任务</th><th>动作</th><th>结果</th><th>说明</th></tr></thead><tbody id="historyBody"><tr><td colspan="6" class="muted">暂无记录</td></tr></tbody></table></div>
+</section>
+<div class="footer-note">数据来源：MovieClaw 已配置站点、下载器任务中心快照及可靠域事件。为保持兼容，本版不依赖新增主程序接口；任务中心未返回的历史种子暂不可评估。规则保存后立即生效；规则时间条件由后台周期评估。普通规则对同一任务和相同规则配置只执行一次；设置每日定时后改为每天最多一次。只有明确选择站点或下载器时，未知来源才会因该筛选条件而不命中。</div>
+
+<div class="modal-backdrop" id="ruleModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal">
+    <div class="section-head"><div><h2 id="modalTitle">新建规则</h2><div class="tiny">选择范围与条件，再设置动作。范围内多选是 OR，条件组内全部是 AND。</div></div><button id="closeModalBtn">关闭</button></div>
+    <div class="form-grid">
+      <div class="field"><label for="ruleName">规则名称</label><input id="ruleName" type="text" maxlength="80" placeholder="例如：电影入库后通知"></div>
+      <div class="field"><label>规则状态</label><label class="choice"><input id="ruleEnabled" type="checkbox" checked>启用这条规则</label></div>
+      <div class="field full"><label>PT 站点（可选条件；不勾选 = 不限制站点）</label><div id="siteChoices" class="site-choices" role="group" aria-label="可选的 PT 站点筛选"><div class="tiny">正在读取已配置站点…</div></div><div class="tiny">站点名称由 MovieClaw 的 site.list / site.catalog 动态读取。选中一个或多个站点时，任务来源必须匹配；留空时不按站点筛选。</div></div>
+      <div class="field full"><label>下载器（可选条件；不勾选 = 所有下载器）</label><div id="downloaderChoices" class="site-choices" role="group" aria-label="可选的下载器筛选"><div class="tiny">正在读取已配置下载器…</div></div><div class="tiny">下载器列表来自 MovieClaw 的 dl.list。选择一个或多个下载器时，任务必须来自其中之一；留空时不按下载器筛选。</div></div>
+      <div class="field"><label>资源类别（多选；留空=全部）</label><div class="choices" id="kindChoices"></div></div>
+      <div class="field"><label>下载来源（多选；留空=全部）</label><div class="choices" id="sourceChoices"></div></div>
+      <div class="field full"><label>必需事件（勾选的事件全部满足；可不选）</label><div class="choices" id="eventChoices"></div><div class="tiny">事件条件与计时条件不同：“整理入库成功”只认实际入库事件；“下载完成”匹配实际完成事件或下载器当前报告已完成的任务。“下载完成后等待 N 小时”仍必须有真实事件时间戳，不会猜测补造。每日定时也是一个 AND 条件。</div></div>
+      <div class="field"><label for="dailyTime">每日定时（可选）</label><input id="dailyTime" type="time"><div class="tiny">每天到达该时间后，本规则进入生效时段；其他 AND 条件仍须全部满足。每颗任务每天最多执行一次，按 MovieClaw 容器时区计时。</div></div>
+      <div class="field"><label for="elapsedFrom">经过时间的起算事件（可选）</label><select id="elapsedFrom"></select></div>
+      <div class="field"><label for="minElapsed">至少经过多少小时（留空=不限制）</label><input id="minElapsed" type="number" min="0" max="87600" step="1" placeholder="例如 72"></div>
+      <div class="field"><label>下载器状态（多选；留空=不限制）</label><div class="choices" id="stateChoices"></div></div>
+      <div class="field"><label for="minProgress">完成度至少（%，可选）</label><input id="minProgress" type="number" min="0" max="100" step="1" placeholder="例如 100"></div>
+      <div class="field"><label for="minUploaded">累计上传至少（GiB，可选）</label><input id="minUploaded" type="number" min="0" step="0.1" placeholder="例如 10"></div>
+      <div class="field"><label for="minUploadSpeed">上传速度至少（KB/s，可选）</label><input id="minUploadSpeed" type="number" min="0" step="1" placeholder="例如 50"></div>
+      <div class="field"><label for="maxUploadSpeed">上传速度至多（KB/s，可选）</label><input id="maxUploadSpeed" type="number" min="0" step="1" placeholder="例如 5"></div>
+      <div class="field"><label for="minDownloadSpeed">下载速度至少（KB/s，可选）</label><input id="minDownloadSpeed" type="number" min="0" step="1" placeholder="例如 100"></div>
+      <div class="field"><label for="maxDownloadSpeed">下载速度至多（KB/s，可选）</label><input id="maxDownloadSpeed" type="number" min="0" step="1" placeholder="例如 5"></div>
+      <div class="field"><label for="minRatio">分享率至少（可选）</label><input id="minRatio" type="number" min="0" step="0.05" placeholder="例如 1.0"></div>
+      <div class="field"><label for="minSize">种子体积至少（GiB，可选）</label><input id="minSize" type="number" min="0" step="0.1" placeholder="例如 20"></div>
+      <div class="field"><label for="hitAndRun">站点 H&amp;R 状态（可选）</label><select id="hitAndRun"><option value="">不限制</option><option value="true">有 H&amp;R</option><option value="false">无 H&amp;R</option></select><div class="tiny">可选 AND 条件：选“有 H&amp;R”或“无 H&amp;R”时，只有能确认且符合所选状态才匹配；留空表示不关心 H&amp;R。</div></div>
+      <div class="field" id="avoidSubscriptionRequeueField" hidden><label>订阅重找源（可选 AND 条件，仅用于删种动作）</label><label class="choice"><input id="avoidSubscriptionRequeue" type="checkbox">避免移除后触发订阅重新找源</label><div class="tiny">勾选后，宿主预演若报告会触发订阅重新找源，则本次动作不执行；未勾选时不限制，但结果会提示。</div></div>
+      <div class="field full"><label for="actionType">满足条件后执行什么</label>
+        <select id="actionType">
+          <option value="notify">发送通知</option>
+          <option value="delete_torrent_keep_files">移除任务，保留文件</option>
+          <option value="delete_torrent_with_files">移除任务并删除文件（不可逆）</option>
+          <option value="set_global_upload_limit">设置全局上传限速</option>
+          <option value="clear_global_upload_limit">取消全局上传限速</option>
+          <option value="set_global_download_limit">设置全局下载限速</option>
+          <option value="clear_global_download_limit">取消全局下载限速</option>
+          <option value="enable_alt_speed">启用备用限速模式</option>
+          <option value="disable_alt_speed">关闭备用限速模式</option>
+          <option value="enable_global_queue">启用下载队列管理</option>
+          <option value="disable_global_queue">关闭下载队列管理</option>
+          <option value="set_global_queue_limits">设置同时下载／做种上限</option>
+          <option value="replace_stalled_task">停滞订阅任务换源</option>
+        </select>
+        <div class="field" id="globalUploadLimitField" style="margin-top:10px" hidden><label for="globalUploadLimitKbps">全局上传速度上限（KB/s，十进制）</label><input id="globalUploadLimitKbps" type="number" min="1" max="1000000" step="1" value="5"></div>
+        <div class="field" id="globalDownloadLimitField" style="margin-top:10px" hidden><label for="globalDownloadLimitKbps">全局下载速度上限（KB/s，十进制）</label><input id="globalDownloadLimitKbps" type="number" min="1" max="1000000" step="1" value="500"></div>
+        <div class="field" id="globalQueueLimitsField" style="margin-top:10px" hidden><label>下载器全局队列上限（留空表示保持当前值；-1 表示不限）</label><div class="form-grid"><div><label for="maxActiveDownloads">最大同时下载数</label><input id="maxActiveDownloads" type="number" min="-1" max="100000" step="1" placeholder="例如 5"></div><div><label for="maxActiveUploads">最大同时做种数</label><input id="maxActiveUploads" type="number" min="-1" max="100000" step="1" placeholder="例如 20"></div></div></div>
+        <div class="tiny" style="margin-top:6px">全局限速、备用限速和队列设置作用于该下载器整体，不针对单颗种子。</div>
+        <div class="warning" id="actionHelp" style="margin-top:8px">通知动作不会修改下载器任务。</div>
+      </div>
+    </div>
+    <div class="modal-footer"><button id="cancelRuleBtn">取消</button><button class="primary" id="saveRuleBtn">保存规则</button></div>
+  </div>
+</div>
+<script>
+const API='/api/v1/plugins/strategy-linkage';
+const EVENT_OPTIONS=[['subscription.download_started','订阅任务已提交下载器（事件）'],['download.completed','下载完成（事件或当前状态）'],['library.ingest.completed','整理入库成功（事件）'],['library.files.added','媒体库文件入账（事件）'],['download.imported','手动下载内容已入库（事件）'],['library.items.arrived','媒体库发现新内容（事件）'],['subscription.fulfilled','订阅季集已确认入库（事件）']];
+const ELAPSED_OPTIONS=[['','不限制'],['first_seen','插件首次观测到任务后'],['subscription.download_started','提交下载器后（计时起点）'],['download.completed','下载完成后（计时起点）'],['library.ingest.completed','整理入库成功后（计时起点）'],['library.files.added','媒体库文件入账后（计时起点）'],['download.imported','手动下载入库后（计时起点）'],['library.items.arrived','媒体库新增后（计时起点）'],['subscription.fulfilled','订阅季集确认入库后（计时起点）']];
+const KIND_OPTIONS=[['movie','电影'],['tv','电视剧'],['other','其他'],['photo','照片'],['unknown','未知类别']];
+const SOURCE_OPTIONS=[['subscription','订阅'],['manual','手动下载'],['boost','刷流'],['external','外部任务'],['unknown','来源未知']];
+const STATE_OPTIONS=[['downloading','下载中'],['stalled','停滞'],['queued','排队'],['paused','已暂停'],['checking','校验中'],['completed','已完成/做种'],['error','出错'],['missing','文件缺失'],['unknown','未知']];
+let rules=[],sites=[],downloaders=[],settings={},editingId=null,historyRows=[],historyExpanded=false,settingsDirty=false;
+const HISTORY_COLLAPSED_LIMIT=10;
+const $=id=>document.getElementById(id);
+function actionLabel(action={}){const t=action.type||'notify';const fixed={notify:'发送通知',delete_torrent_keep_files:'移除任务，保留文件',delete_torrent_with_files:'移除任务并删除文件',clear_global_upload_limit:'取消全局上传限速',clear_global_download_limit:'取消全局下载限速',enable_alt_speed:'启用备用限速模式',disable_alt_speed:'关闭备用限速模式',enable_global_queue:'启用下载队列管理',disable_global_queue:'关闭下载队列管理',replace_stalled_task:'停滞订阅任务换源'};if(t==='set_global_upload_limit')return action.upload_limit_kbps==null?'设置全局上传限速':`全局上传限速：${action.upload_limit_kbps} KB/s`;if(t==='set_global_download_limit')return action.download_limit_kbps==null?'设置全局下载限速':`全局下载限速：${action.download_limit_kbps} KB/s`;if(t==='set_global_queue_limits'){const a=action.max_active_downloads,b=action.max_active_uploads;const fmt=v=>v===-1?'不限':v==null?'不变':String(v);return a==null&&b==null?'设置全局队列上限':`队列上限：下载 ${fmt(a)} / 做种 ${fmt(b)}`;}return fixed[t]||t;}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+async function api(path,options={}){const r=await fetch(API+path,{credentials:'same-origin',headers:{'Content-Type':'application/json',...(options.headers||{})},...options});const raw=await r.text();let d;try{d=raw?JSON.parse(raw):{}}catch{d={detail:raw}}if(!r.ok)throw new Error(d.detail||d.message||d.data?.message||('HTTP '+r.status));if(d&&typeof d==='object'&&Object.prototype.hasOwnProperty.call(d,'success')&&Object.prototype.hasOwnProperty.call(d,'data')){if(d.success===false)throw new Error(d.message||'请求失败');return d.data;}return d;}
+function showStatus(message,type='ok'){const el=$('statusMessage');el.hidden=false;el.className='status '+(type==='error'?'error':'ok');el.textContent=message;setTimeout(()=>{if(el.textContent===message)el.hidden=true},8000)}
+function updateRunButtonLabel(){const dry=settings?.dry_run!==false;const btn=$('runBtn');btn.textContent=dry?'模拟运行':'执行规则';btn.disabled=!!settingsDirty;btn.title=settingsDirty?'设置正在自动保存，请稍候。':(dry?'只模拟命中结果，不执行动作。':'按已启用规则直接执行所选动作。');const hint=$('resultModeHint');if(hint)hint.textContent=dry?'模拟模式：只演练，不修改下载器':'真实执行模式：后台扫描和立即执行都会执行所选动作'}
+function checkedValues(containerId){return [...$(containerId).querySelectorAll('input:checked')].map(x=>x.value)}
+function fillChoices(id,items,selected=[]){$(id).innerHTML=items.map(([v,label])=>`<label class="choice"><input type="checkbox" value="${esc(v)}" ${selected.includes(v)?'checked':''}>${esc(label)}</label>`).join('')}
+function optionLabel(options,value){return (options.find(x=>x[0]===value)||[value,value])[1]}
+function renderSiteChoices(selectedIds=[]){const selected=new Set(selectedIds);const box=$('siteChoices');if(!sites.length){box.innerHTML='<div class="tiny">当前没有读取到已配置的 PT 站点；仍可创建不限站点的规则。若要按站点筛选，请先在主程序配置站点后刷新。</div>';return}box.innerHTML=sites.map(s=>`<label title="站点 ID：${esc(s.site_id)}" class="site-choice${s.usable?'':' unusable'}"><input type="checkbox" value="${esc(s.site_id)}" ${selected.has(s.site_id)?'checked':''}><span class="site-meta"><span class="site-name">${esc(s.display_name||s.site_id)}</span>${s.usable?'':`<span class="site-id">${esc(s.status||'当前不可用')}</span>`}</span></label>`).join('')}
+function renderDownloaderChoices(selectedIds=[]){const selected=new Set((selectedIds||[]).map(String));const box=$('downloaderChoices');if(!downloaders.length){box.innerHTML='<div class="tiny">当前没有读取到已配置的下载器；仍可创建不限下载器的规则。请在 MovieClaw 下载器设置中添加并启用下载器后刷新。</div>';return}box.innerHTML=downloaders.map(d=>`<label title="下载器 ID：${esc(d.id)}" class="site-choice${d.usable?'':' unusable'}"><input type="checkbox" value="${esc(d.id)}" ${selected.has(String(d.id))?'checked':''}><span class="site-meta"><span class="site-name">${esc(d.name||('下载器 '+d.id))}</span><span class="site-id">${esc((d.client_type||'未知类型')+(d.usable?'':' · '+(d.status||'当前不可用')))}</span></span></label>`).join('')}
+async function loadSites(){const data=await api('/sites');sites=data.sites||[];renderSiteChoices([]);}
+async function loadDownloaders(){const data=await api('/downloaders');downloaders=data.downloaders||[];renderDownloaderChoices([]);}
+function renderRules(){
+ $('rulesBadge').textContent=rules.length+' 条';
+ $('metricRules').textContent=rules.length;
+ $('metricEnabled').textContent='已启用 '+rules.filter(r=>r.enabled).length+' 条';
+ if(!rules.length){
+  $('ruleList').innerHTML='<div class="empty">还没有规则。点击 <button type="button" class="inline-link" id="emptyNewRuleBtn">新建规则</button>，先选择站点和触发条件。</div>';
+  $('emptyNewRuleBtn').onclick=()=>openRule();
+  return;
+ }
+ $('ruleList').innerHTML=rules.map((r,i)=>{
+  const selectedSites=!(r.all_sites||!(r.site_ids||[]).length);
+  const selectedDownloaders=(r.downloader_ids||[]).length>0;
+  const siteLabel=selectedSites?(r.site_ids||[]).map(id=>sites.find(s=>s.site_id===id)?.display_name||id).join('、'):'';
+  const downloaderLabel=selectedDownloaders?(r.downloader_ids||[]).map(id=>downloaders.find(d=>String(d.id)===String(id))?.name||('下载器 '+id)).join('、'):'';
+  const kinds=(r.media_kinds||[]).map(x=>optionLabel(KIND_OPTIONS,x));
+  const sources=(r.sources||[]).map(x=>optionLabel(SOURCE_OPTIONS,x));
+  const events=(r.required_events||[]).map(x=>optionLabel(EVENT_OPTIONS,x));
+  const conditions=[];
+  if(selectedSites)conditions.push('站点：'+siteLabel);
+  if(selectedDownloaders)conditions.push('下载器：'+downloaderLabel);
+  if(kinds.length)conditions.push('类别：'+kinds.join(' / '));
+  if(sources.length)conditions.push('来源：'+sources.join(' / '));
+  for(const ev of events)conditions.push('事件：'+ev);if(r.daily_time)conditions.push('每日 '+r.daily_time+' 后');
+  if(r.min_elapsed_hours!==null&&r.min_elapsed_hours!==undefined)conditions.push('时间：'+optionLabel(ELAPSED_OPTIONS,r.elapsed_from)+' ≥ '+r.min_elapsed_hours+' 小时');
+  if((r.task_states||[]).length)conditions.push('状态：'+r.task_states.map(x=>optionLabel(STATE_OPTIONS,x)).join(' / '));
+  if(r.min_progress_percent!==null&&r.min_progress_percent!==undefined)conditions.push('完成度 ≥ '+r.min_progress_percent+'%');
+  if(r.min_uploaded_bytes!==null&&r.min_uploaded_bytes!==undefined)conditions.push('累计上传 ≥ '+(r.min_uploaded_bytes/1073741824).toFixed(1)+' GB');
+  if(r.min_upload_speed_kbps!==null&&r.min_upload_speed_kbps!==undefined)conditions.push('上传速度 ≥ '+r.min_upload_speed_kbps+' KB/s');
+  if(r.max_upload_speed_kbps!==null&&r.max_upload_speed_kbps!==undefined)conditions.push('上传速度 ≤ '+r.max_upload_speed_kbps+' KB/s');
+  if(r.min_download_speed_kbps!==null&&r.min_download_speed_kbps!==undefined)conditions.push('下载速度 ≥ '+r.min_download_speed_kbps+' KB/s');
+  if(r.max_download_speed_kbps!==null&&r.max_download_speed_kbps!==undefined)conditions.push('下载速度 ≤ '+r.max_download_speed_kbps+' KB/s');
+  if(r.min_share_ratio!==null&&r.min_share_ratio!==undefined)conditions.push('分享率 ≥ '+r.min_share_ratio);
+  if(r.min_size_gb!==null&&r.min_size_gb!==undefined)conditions.push('体积 ≥ '+r.min_size_gb+' GB');
+  if(r.hit_and_run!==null&&r.hit_and_run!==undefined)conditions.push(r.hit_and_run?'H&R：有':'H&R：无');
+  if(r.avoid_subscription_requeue)conditions.push('避免订阅重新找源');
+  const action=actionLabel(r.action);
+  const actionType=r.action?.type||'notify';
+  const actionTone=['delete_torrent_keep_files','delete_torrent_with_files'].includes(actionType)?'danger':(['set_global_upload_limit','set_global_download_limit','clear_global_upload_limit','clear_global_download_limit','enable_alt_speed','disable_alt_speed','enable_global_queue','disable_global_queue','set_global_queue_limits'].includes(actionType)?'global':'');
+  const conditionHtml=(conditions.length?conditions:['任意任务（无筛选条件）']).map((x,j)=>`${j?'<span class="logic-plus" aria-label="并且">+</span>':''}<span class="condition-chip">${esc(x)}</span>`).join('');
+  return `<article class="rule"><div class="rule-top"><div><div class="rule-name">${esc(r.name)} ${r.enabled?'<span class="badge ok">启用</span>':'<span class="badge">停用</span>'}</div></div><div class="rule-actions"><button data-edit="${i}">编辑</button><button data-toggle="${i}">${r.enabled?'停用':'启用'}</button><button class="danger" data-delete="${i}">删除</button></div></div><div class="rule-expression"><div class="expression-row conditions-row"><div class="expression-conditions"><span class="expression-label">触发条件</span>${conditionHtml}</div></div><div class="expression-row action-row"><span class="logic-equals" aria-label="然后执行">→</span><div class="action-chip ${actionTone}"><span class="action-caption">联动动作</span><strong>${esc(action)}</strong></div></div></div><div class="rule-desc">本规则与其他启用规则之间是 OR；任意一条规则的全部条件满足，就执行对应动作。</div></article>`;
+ }).join('');
+ $('ruleList').querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>openRule(rules[+b.dataset.edit]));
+ $('ruleList').querySelectorAll('[data-toggle]').forEach(b=>b.onclick=()=>toggleRule(+b.dataset.toggle));
+ $('ruleList').querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>deleteRule(+b.dataset.delete));
+}
+function fillElapsed(selected=''){ $('elapsedFrom').innerHTML=ELAPSED_OPTIONS.map(([v,l])=>`<option value="${esc(v)}" ${v===selected?'selected':''}>${esc(l)}</option>`).join('');}
+function openRule(rule=null){editingId=rule?.id||null;$('modalTitle').textContent=rule?'编辑规则':'新建规则';$('ruleName').value=rule?.name||'';$('ruleEnabled').checked=rule?.enabled!==false;const selectedSites=rule?.all_sites?[]:(rule?.site_ids||[]);renderSiteChoices(selectedSites);renderDownloaderChoices(rule?.downloader_ids||[]);fillChoices('kindChoices',KIND_OPTIONS,rule?.media_kinds||[]);fillChoices('sourceChoices',SOURCE_OPTIONS,rule?.sources||[]);fillChoices('eventChoices',EVENT_OPTIONS,rule?.required_events||[]);fillElapsed(rule?.elapsed_from||'');$('dailyTime').value=rule?.daily_time||'';$('minElapsed').value=rule?.min_elapsed_hours??'';fillChoices('stateChoices',STATE_OPTIONS,rule?.task_states||[]);$('minProgress').value=rule?.min_progress_percent??'';$('minUploaded').value=rule?.min_uploaded_bytes==null?'':(rule.min_uploaded_bytes/1073741824).toFixed(2);$('minUploadSpeed').value=rule?.min_upload_speed_kbps??'';$('maxUploadSpeed').value=rule?.max_upload_speed_kbps??'';$('minDownloadSpeed').value=rule?.min_download_speed_kbps??'';$('maxDownloadSpeed').value=rule?.max_download_speed_kbps??'';$('minRatio').value=rule?.min_share_ratio??'';$('minSize').value=rule?.min_size_gb??'';$('hitAndRun').value=rule?.hit_and_run===true?'true':rule?.hit_and_run===false?'false':'';$('avoidSubscriptionRequeue').checked=!!rule?.avoid_subscription_requeue;$('actionType').value=rule?.action?.type||'notify';$('globalUploadLimitKbps').value=rule?.action?.upload_limit_kbps??5;$('globalDownloadLimitKbps').value=rule?.action?.download_limit_kbps??500;$('maxActiveDownloads').value=rule?.action?.max_active_downloads??'';$('maxActiveUploads').value=rule?.action?.max_active_uploads??'';updateActionHelp();$('ruleModal').classList.add('open');}
+function closeRule(){$('ruleModal').classList.remove('open');editingId=null}
+$('actionType').onchange=updateActionHelp;
+function updateActionHelp(){const type=$('actionType').value;const deleting=['delete_torrent_keep_files','delete_torrent_with_files'].includes(type);$('avoidSubscriptionRequeueField').hidden=!deleting;$('globalUploadLimitField').hidden=type!=='set_global_upload_limit';$('globalDownloadLimitField').hidden=type!=='set_global_download_limit';$('globalQueueLimitsField').hidden=type!=='set_global_queue_limits';if(type==='delete_torrent_keep_files')$('actionHelp').textContent='匹配后从下载器移除任务，本地文件保留。';else if(type==='delete_torrent_with_files')$('actionHelp').textContent='匹配后移除任务并删除本地数据文件；此操作不可逆。';else if(['set_global_upload_limit','clear_global_upload_limit','set_global_download_limit','clear_global_download_limit','enable_alt_speed','disable_alt_speed','enable_global_queue','disable_global_queue','set_global_queue_limits'].includes(type))$('actionHelp').textContent='修改所选下载器的全局设置，会影响该下载器中的其他任务。';else if(type==='replace_stalled_task')$('actionHelp').textContent='AND 条件中的来源必须只选“订阅”，状态必须只选“停滞”，满足后才会请求换源。';else $('actionHelp').textContent='条件满足后发布策略联动通知事件。'}
+function readRule(){const name=$('ruleName').value.trim();if(!name)throw new Error('请填写规则名称');const siteIds=checkedValues('siteChoices');const elapsed=$('minElapsed').value.trim();const toNum=id=>$(id).value.trim()===''?null:Number($(id).value);const uploadGb=toNum('minUploaded');return {id:editingId||(window.crypto&&crypto.randomUUID?crypto.randomUUID().replaceAll('-','').slice(0,12):('r'+Date.now().toString(36)+Math.random().toString(36).slice(2,8))),name,enabled:$('ruleEnabled').checked,all_sites:siteIds.length===0,site_ids:siteIds,downloader_ids:checkedValues('downloaderChoices').map(Number),media_kinds:checkedValues('kindChoices'),sources:checkedValues('sourceChoices'),required_events:checkedValues('eventChoices'),daily_time:$('dailyTime').value||'',elapsed_from:elapsed?$('elapsedFrom').value:'',min_elapsed_hours:elapsed?Number(elapsed):null,task_states:checkedValues('stateChoices'),min_uploaded_bytes:uploadGb===null?null:Math.round(uploadGb*1073741824),min_upload_speed_kbps:toNum('minUploadSpeed'),max_upload_speed_kbps:toNum('maxUploadSpeed'),min_download_speed_kbps:toNum('minDownloadSpeed'),max_download_speed_kbps:toNum('maxDownloadSpeed'),min_share_ratio:toNum('minRatio'),min_progress_percent:toNum('minProgress'),min_size_gb:toNum('minSize'),hit_and_run:$('hitAndRun').value===''?null:$('hitAndRun').value==='true',avoid_subscription_requeue:['delete_torrent_keep_files','delete_torrent_with_files'].includes($('actionType').value)&&$('avoidSubscriptionRequeue').checked,action:(()=>{const type=$('actionType').value;if(type==='set_global_upload_limit')return {type,upload_limit_kbps:Number($('globalUploadLimitKbps').value)};if(type==='set_global_download_limit')return {type,download_limit_kbps:Number($('globalDownloadLimitKbps').value)};if(type==='set_global_queue_limits'){const a=$('maxActiveDownloads').value.trim(),b=$('maxActiveUploads').value.trim();return {type,...(a===''?{}:{max_active_downloads:Number(a)}),...(b===''?{}:{max_active_uploads:Number(b)})}}return {type}})()}}
+$('saveRuleBtn').onclick=async()=>{try{const rule=readRule();const next=[...rules];const at=next.findIndex(r=>r.id===rule.id);if(at>=0)next[at]=rule;else next.push(rule);await api('/rules',{method:'PUT',body:JSON.stringify({rules:next})});rules=next;renderRules();closeRule();showStatus('规则已保存。规则之间 OR，单条规则内 AND。');await refreshStatus()}catch(e){showStatus(e.message,'error')}};
+$('cancelRuleBtn').onclick=closeRule;$('closeModalBtn').onclick=closeRule;$('newRuleBtn').onclick=()=>openRule();$('ruleModal').onclick=e=>{if(e.target===$('ruleModal'))closeRule()};
+async function toggleRule(i){const next=rules.map((r,n)=>n===i?{...r,enabled:!r.enabled}:r);try{const d=await api('/rules',{method:'PUT',body:JSON.stringify({rules:next})});rules=d.rules;renderRules();showStatus('规则状态已更新。')}catch(e){showStatus(e.message,'error')}}
+async function deleteRule(i){if(!confirm('确定删除规则「'+rules[i].name+'」？'))return;const next=rules.filter((_,n)=>n!==i);try{const d=await api('/rules',{method:'PUT',body:JSON.stringify({rules:next})});rules=d.rules;renderRules();showStatus('规则已删除。')}catch(e){showStatus(e.message,'error')}}
+let settingsSaveTimer=null,settingsRevision=0,settingsSaving=false;
+function settingsPayload(){return {dry_run:$('dryRun').checked,scan_interval_seconds:Number($('scanInterval').value)}}
+function queueSettingsSave(){settingsRevision++;settingsDirty=true;settings={...(settings||{}),...settingsPayload()};updateRunButtonLabel();if(settingsSaveTimer)clearTimeout(settingsSaveTimer);settingsSaveTimer=setTimeout(()=>{settingsSaveTimer=null;saveSettingsNow()},180)}
+async function saveSettingsNow(){if(settingsSaving)return;settingsSaving=true;const revision=settingsRevision;const payload=settingsPayload();try{const d=await api('/settings',{method:'PUT',body:JSON.stringify(payload)});settings={...(d.settings||{}),...payload};if(revision===settingsRevision){settingsDirty=false;updateRunButtonLabel()}else{settingsDirty=true;updateRunButtonLabel()}}catch(e){if(revision===settingsRevision){settingsDirty=true;updateRunButtonLabel();showStatus('设置保存失败：'+(e.message||String(e))+'。再次切换模拟开关或修改扫描间隔即可重试。','error')}}finally{settingsSaving=false;if(settingsRevision!==revision&&settingsDirty){if(settingsSaveTimer)clearTimeout(settingsSaveTimer);settingsSaveTimer=setTimeout(()=>{settingsSaveTimer=null;saveSettingsNow()},0)}}}
+async function loadRules(){const d=await api('/rules');rules=d.rules||[];settings=d.settings||{};settingsDirty=false;renderRules();$('dryRun').checked=settings.dry_run!==false;$('scanInterval').value=settings.scan_interval_seconds||60;updateRunButtonLabel();}
+$('dryRun').addEventListener('change',queueSettingsSave);
+$('scanInterval').addEventListener('change',()=>{const value=Number($('scanInterval').value);if(!Number.isFinite(value)||value<30||value>3600){showStatus('扫描间隔必须在 30～3600 秒之间。','error');$('scanInterval').value=settings?.scan_interval_seconds||60;return}queueSettingsSave()});
+async function refreshStatus(){const d=await api('/status');$('metricRules').textContent=d.rules_count??rules.length;$('metricEnabled').textContent='已启用 '+(d.enabled_rules??rules.filter(r=>r.enabled).length)+' 条';$('metricTracked').textContent=d.tracked_torrents??'—';const lr=d.last_run||{};$('metricMatched').textContent=lr.matched??'—';$('metricLastRun').textContent=lr.at?'上次评估 '+new Date(lr.at*1000).toLocaleString():'尚无评估记录';}
+function timeText(v){if(!v)return'—';return new Date(Number(v)*1000).toLocaleString()}
+function statusBadge(status){const cls=status==='success'?'ok':(['blocked','error'].includes(status)?'bad':status==='dry_run'?'warn':'');const label={success:'成功',dry_run:'模拟',miss:'未命中',blocked:'已阻止',error:'执行失败',deduplicated:'已去重'}[status]||status||'—';return `<span class="badge ${cls}">${esc(label)}</span>`}
+function renderHistory(){
+ const rows=historyExpanded?historyRows:historyRows.slice(0,HISTORY_COLLAPSED_LIMIT);
+ $('historyCountLabel').textContent=historyRows.length>HISTORY_COLLAPSED_LIMIT?`共 ${historyRows.length} 条，默认显示最近 10 条`:historyRows.length?`共 ${historyRows.length} 条`:'暂无记录';
+ const toggle=$('historyToggleBtn');toggle.hidden=historyRows.length<=HISTORY_COLLAPSED_LIMIT;toggle.textContent=historyExpanded?'收起到最近 10 条':`查看全部（${historyRows.length}）`;
+ $('historyBody').innerHTML=rows.length?rows.map(x=>`<tr><td>${esc(timeText(x.at))}</td><td>${esc(x.rule_name||'—')}</td><td>${esc(x.torrent_name||x.info_hash||'—')}<div class="tiny">${esc(x.site_id||'未知站点')}</div></td><td>${esc(actionLabel({type:x.action,...(x.action_config||{})})||'—')}</td><td>${statusBadge(x.status)}</td><td>${esc(x.message||'')}</td></tr>`).join(''):'<tr><td colspan="6" class="muted">暂无记录</td></tr>';
+}
+async function refreshHistory(){const d=await api('/history');historyRows=d.history||[];renderHistory();}
+function runSummaryHtml(runData,dryMode){
+ if(!runData)return '';
+ const label=dryMode?'本次模拟运行':'本次执行结果';
+  const scanned=Number(runData.scanned||0),matched=Number(runData.matched||0),missed=Number(runData.missed||0),executed=Number(runData.executed||0),dry=Number(runData.dry_run||0),blocked=Number(runData.blocked_or_failed||0);
+  return `<div class="preview-item"><b>${label}</b><div class="rule-tags"><span class="badge">扫描 ${scanned} 项</span><span class="badge ${matched?'ok':'warn'}">命中 ${matched} 项</span><span class="badge">未命中 ${missed} 项</span><span class="badge">实际执行 ${dryMode?0:executed} 项</span><span class="badge">模拟动作 ${dry} 项</span><span class="badge ${blocked?'warn':''}">阻止/失败 ${blocked} 项</span></div><div class="tiny">${dryMode?'本次只记录模拟结果，没有修改下载器或删除文件。':'以上为实际运行统计；逐项结果请查看最近执行记录。'}${runData.task_snapshot_error?' 任务列表：'+esc(runData.task_snapshot_error):''}${runData.downloader_lookup_error?' 下载器列表：'+esc(runData.downloader_lookup_error):''}</div></div>`;
+}
+function renderRunOnly(runData,dryMode,errorMessage=''){
+ const title=dryMode?'模拟运行结果':'执行结果';
+ const errorHtml=errorMessage?`<div class="warning" style="margin-top:10px">${esc(errorMessage)}</div>`:'';
+ $('previewResults').classList.remove('muted');
+ $('previewResults').innerHTML=runSummaryHtml(runData,dryMode)+`<div class="preview-item"><b>${title}</b><div class="tiny">${dryMode?'模拟运行不会实际执行动作。':'真实执行的每项成功、未命中、阻止或失败原因请查看下方最近执行记录。'}</div></div>`+errorHtml;
+}
+function renderPreview(data,runData=null,dryMode=true,previewError=''){
+ const rows=data.matches||[], diagnostics=data.rule_diagnostics||[], events=data.event_stats||[], notes=data.notes||[];
+ const errors=[];if(data.task_snapshot_error)errors.push('下载器任务读取提示：'+data.task_snapshot_error);if(data.site_lookup_error)errors.push('PT 站点读取失败：'+data.site_lookup_error);if(data.downloader_lookup_error)errors.push('下载器配置读取失败：'+data.downloader_lookup_error);if(previewError)errors.push('详细诊断读取失败：'+previewError);
+ const runSummary=runSummaryHtml(runData,dryMode);
+ const summary=`<div class="rule-tags"><span class="badge">下载器任务 ${Number(data.tasks_count||0)} 项</span><span class="badge">本次检查 ${Number(data.evaluated_tasks_count||0)} 项</span><span class="badge">已采集台账 ${Number(data.tracked_count||0)} 项</span><span class="badge">启用规则 ${Number(data.enabled_rules_count||0)} 条</span><span class="badge ${Number(data.match_count||0)?'ok':'warn'}">匹配 ${Number(data.match_count||0)} 项</span></div><div class="tiny">${dryMode?'这是本次模拟运行的规则诊断。模拟不会修改下载器或删除文件。':'这是执行前读取的匹配快照；实际执行结果见上方和最近执行记录。'} 检查时间：${esc(timeText(data.at))}。</div>`;
+ const errorHtml=errors.length?`<div class="warning" style="margin-top:10px">${errors.map(esc).join('<br>')}</div>`:'';
+ const noteHtml=notes.length?`<div class="warning" style="margin-top:10px">${notes.map(esc).join('<br>')}</div>`:'';
+ const diagHtml=diagnostics.length?`<div class="section"><div class="section-head"><h3>逐条规则诊断</h3><span class="tiny">显示 AND 条件中未满足的原因</span></div><div class="preview-list">${diagnostics.map(x=>`<div class="preview-item"><b>${esc(x.rule_name)} · 匹配 ${Number(x.match_count||0)} / ${Number(x.candidate_count||0)}</b>${(x.reasons||[]).length?`<div class="tiny">未匹配原因：${x.reasons.map(r=>`${esc(r.reason)}（${Number(r.count)} 项）`).join('；')}</div>`:'<div class="tiny">当前任务均满足这条规则，或没有可诊断的任务。</div>'}</div>`).join('')}</div></div>`:'';
+ const matchHtml=rows.length?`<div class="section"><div class="section-head"><h3>匹配任务</h3><span class="tiny">最多显示前 100 项</span></div><div class="preview-list">${rows.slice(0,100).map(x=>`<div class="preview-item"><b>${esc(x.torrent_name)} · ${esc(x.site_name)}</b><div class="tiny">规则：${esc(x.rule_name)} · 下载器：${esc(x.downloader_name||'未知下载器')} · 类别：${esc(optionLabel(KIND_OPTIONS,x.media_kind))} · 动作：${esc(actionLabel({type:x.action,...(x.action_config||{})}))}</div><div class="tiny">${esc(x.conditions||'所有条件满足（AND）')}${x.miss_reason?' · <b>未命中原因：'+esc(x.miss_reason)+'</b>':''}${x.blocked_reason?' · <b>安全校验：'+esc(x.blocked_reason)+'</b>':''}${x.plan_message?' · '+esc(x.plan_message):''}</div></div>`).join('')}</div></div>`:`<div class="empty" style="margin-top:12px">当前没有规则匹配。请查看上方逐条规则诊断。若使用“下载完成后经过 N 小时”，仍需真实事件时间戳。当前版本评估 MovieClaw 任务中心返回的任务；不在任务中心的历史种子暂不可评估。</div>`;
+ const eventHtml=`<div class="section"><div class="section-head"><h3>事件采集概览</h3><span class="tiny">插件实际记录的事件</span></div><div class="preview-list">${events.map(x=>`<div class="preview-item"><b>${esc(x.label)}</b><div class="tiny">已采集到事件的任务：${Number(x.count||0)} 项 · 最近时间：${esc(timeText(x.last_at))}</div></div>`).join('')}</div></div>`;
+ $('previewResults').classList.remove('muted');$('previewResults').innerHTML=runSummary+summary+errorHtml+noteHtml+matchHtml+diagHtml+eventHtml;
+}
+$('historyToggleBtn').onclick=()=>{historyExpanded=!historyExpanded;renderHistory()};
+
+$('runBtn').onclick=async()=>{
+ const dry=settings?.dry_run!==false;
+ if(settingsDirty){showStatus('设置正在自动保存，请稍候。','error');return}
+ const btn=$('runBtn');btn.disabled=true;btn.textContent=dry?'正在模拟运行…':'正在执行…';
+ $('previewResults').classList.add('muted');$('previewResults').textContent=dry?'正在检查当前任务、诊断规则，并记录本次模拟结果；不会执行实际动作。':'正在读取执行前任务状态并执行已命中的规则，请稍候…';
+ showStatus(dry?'模拟运行已开始…':'规则执行已开始，请稍候…');
+ let previewData=null,previewError='',runData=null,runError='';
+ try{
+  const controller=new AbortController();let timer;
+  try{timer=setTimeout(()=>controller.abort(),30000);previewData=await api('/preview',{signal:controller.signal})}
+  catch(e){previewError=e.name==='AbortError'?'读取规则诊断超过 30 秒。':(e.message||String(e))}
+  finally{if(timer)clearTimeout(timer)}
+  try{runData=await api('/run',{method:'POST',body:'{}'})}
+  catch(e){runError=e.message||String(e);throw e}
+  if(previewData)renderPreview(previewData,runData,dry,previewError);
+  else renderRunOnly(runData,dry,previewError||'无法读取详细规则诊断。');
+  showStatus(`${dry?'模拟运行':'规则执行'}完成：扫描 ${runData.scanned??0} 项，命中 ${runData.matched??0} 项，未命中 ${runData.missed??0} 项，实际执行 ${dry?0:(runData.executed??0)} 项，模拟动作 ${runData.dry_run??0} 项，阻止/失败 ${runData.blocked_or_failed??0} 项。`);
+  try{await refreshStatus();await refreshHistory()}catch(refreshError){showStatus(`运行已完成，但刷新状态/记录失败：${refreshError.message||String(refreshError)}`,'error')}
+  $('previewSection').scrollIntoView({behavior:'smooth',block:'start'});
+ }catch(e){
+  if(previewData){renderPreview(previewData,null,dry,previewError);if(runError){const el=$('previewResults');el.insertAdjacentHTML('beforeend',`<div class="warning" style="margin-top:10px">运行失败：${esc(runError)}</div>`)}}
+  else renderRunOnly(runData,dry,runError||previewError||e.message||String(e));
+  showStatus(`${dry?'模拟运行':'规则执行'}失败：${runError||e.message||String(e)}`,'error');
+ }finally{btn.disabled=false;updateRunButtonLabel()}
+};
+async function refreshAll(){try{await loadSites();await loadDownloaders();await loadRules();await refreshStatus();await refreshHistory();showStatus('策略联动数据已刷新。')}catch(e){showStatus(e.message,'error')}}
+$('refreshBtn').onclick=refreshAll;$('clearHistoryBtn').onclick=async()=>{try{const d=await api('/history/clear',{method:'POST',body:'{}'});historyRows=[];historyExpanded=false;renderHistory();await refreshStatus();showStatus(`已清空 ${Number(d.cleared||0)} 条执行日志。`)}catch(e){showStatus('清空日志失败：'+(e.message||String(e)),'error')}};
+(async()=>{fillChoices('kindChoices',KIND_OPTIONS,[]);fillChoices('sourceChoices',SOURCE_OPTIONS,[]);fillChoices('eventChoices',EVENT_OPTIONS,[]);fillChoices('stateChoices',STATE_OPTIONS,[]);fillElapsed('');await refreshAll()})();
+</script>
+</body>
+</html>

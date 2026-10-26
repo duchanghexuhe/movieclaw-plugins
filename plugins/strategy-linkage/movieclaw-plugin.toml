@@ -1,0 +1,49 @@
+[plugin]
+id = "strategy-linkage"
+title = "策略联动"
+version = "1.0.0"
+entry = "strategy_linkage"
+runtime = "process"
+sdk = "^1.0"
+description = "按站点、下载器、资源类别、事件、任务状态、阈值和每日定时组合规则。支持模拟评估、通知、移除种子、调整下载器全局限速与队列，以及请求停滞订阅任务换源。"
+
+[requires]
+"host-ops" = "^1.0"
+"plugin-data" = "^1.0"
+"plugin-routes" = "^1.0"
+"plugin-events" = "^1.0"
+"kernel/durable-events" = "^1.0"
+"download.completed" = "^2.0"
+"download.imported" = "^1.0"
+"library.ingest.completed" = "^1.0"
+"library.files.added" = "^2.0"
+"library.items.arrived" = "^1.0"
+"subscription.download_started" = "^1.0"
+"subscription.fulfilled" = "^2.0"
+
+[permissions]
+operations = [
+  "site.list",
+  "site.catalog",
+  "dl.list",
+  "dl.tasks",
+  "dl.torrent.delete",
+  "dl.torrent.replace",
+  "dl.limits",
+  "dl.limits.set",
+  "dl.file-sources.list",
+  "library.items.relations",
+  "library.list",
+]
+
+[[events]]
+name = "strategy-linkage.rule-action"
+title = "策略联动：规则执行结果"
+
+[[notifications]]
+event = "strategy-linkage.rule-action"
+title = "策略联动：{action_label}"
+body = "规则「{rule_name}」处理「{torrent_name}」（站点：{site_name}）：{result}"
+level = "passive"
+default = true
+open = "plugin"
