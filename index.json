@@ -1,6 +1,6 @@
 {
   "schema": 2,
-  "generated_at": "2026-10-26T02:21:56Z",
+  "generated_at": "2026-10-27T02:11:12Z",
   "signed": true,
   "key_id": "catalog-1",
   "repository": "https://github.com/movieclaw/movieclaw-plugins",
@@ -27,7 +27,7 @@
       "screenshots": [],
       "deprecated": null,
       "feedback_url": "https://github.com/movieclaw/movieclaw-plugins/issues/new?template=plugin-feedback.yml&plugin=cloud-115",
-      "downloads": 43,
+      "downloads": 47,
       "latest": "0.1.0-beta.2",
       "latest_stable": null,
       "versions": [
@@ -257,7 +257,7 @@
       "screenshots": [],
       "deprecated": null,
       "feedback_url": "https://github.com/movieclaw/movieclaw-plugins/issues/new?template=plugin-feedback.yml&plugin=douban-hot-subscribe",
-      "downloads": 0,
+      "downloads": 4,
       "latest": "1.1.0",
       "latest_stable": "1.1.0",
       "versions": [
@@ -334,7 +334,7 @@
       "screenshots": [],
       "deprecated": null,
       "feedback_url": "https://github.com/movieclaw/movieclaw-plugins/issues/new?template=plugin-feedback.yml&plugin=douban-rank-subscribe",
-      "downloads": 3,
+      "downloads": 7,
       "latest": "1.0.1",
       "latest_stable": "1.0.1",
       "versions": [
@@ -438,7 +438,7 @@
       "screenshots": [],
       "deprecated": null,
       "feedback_url": "https://github.com/movieclaw/movieclaw-plugins/issues/new?template=plugin-feedback.yml&plugin=douban-wish",
-      "downloads": 0,
+      "downloads": 4,
       "latest": "1.1.0",
       "latest_stable": "1.1.0",
       "versions": [
@@ -513,7 +513,7 @@
       "screenshots": [],
       "deprecated": null,
       "feedback_url": "https://github.com/movieclaw/movieclaw-plugins/issues/new?template=plugin-feedback.yml&plugin=movie-voice",
-      "downloads": 9,
+      "downloads": 13,
       "latest": "0.2.1",
       "latest_stable": "0.2.1",
       "versions": [
@@ -741,7 +741,7 @@
       "screenshots": [],
       "deprecated": null,
       "feedback_url": "https://github.com/movieclaw/movieclaw-plugins/issues/new?template=plugin-feedback.yml&plugin=notifyhub",
-      "downloads": 6,
+      "downloads": 8,
       "latest": "2.3.0",
       "latest_stable": "2.3.0",
       "versions": [
@@ -828,7 +828,7 @@
       "screenshots": [],
       "deprecated": null,
       "feedback_url": "https://github.com/movieclaw/movieclaw-plugins/issues/new?template=plugin-feedback.yml&plugin=openlist-direct-link",
-      "downloads": 8,
+      "downloads": 9,
       "latest": "0.1.0",
       "latest_stable": "0.1.0",
       "versions": [
@@ -896,7 +896,7 @@
       "screenshots": [],
       "deprecated": null,
       "feedback_url": "https://github.com/movieclaw/movieclaw-plugins/issues/new?template=plugin-feedback.yml&plugin=platform-discovery",
-      "downloads": 18,
+      "downloads": 21,
       "latest": "0.2.1",
       "latest_stable": "0.2.1",
       "versions": [
@@ -1104,7 +1104,7 @@
       "screenshots": [],
       "deprecated": null,
       "feedback_url": "https://github.com/movieclaw/movieclaw-plugins/issues/new?template=plugin-feedback.yml&plugin=pt-keepalive",
-      "downloads": 0,
+      "downloads": 4,
       "latest": "0.2.2",
       "latest_stable": "0.2.2",
       "versions": [
@@ -1179,7 +1179,7 @@
       "screenshots": [],
       "deprecated": null,
       "feedback_url": "https://github.com/movieclaw/movieclaw-plugins/issues/new?template=plugin-feedback.yml&plugin=pt-site-pack",
-      "downloads": 15,
+      "downloads": 24,
       "latest": "0.2.1",
       "latest_stable": "0.2.1",
       "versions": [
@@ -1425,7 +1425,7 @@
       "screenshots": [],
       "deprecated": null,
       "feedback_url": "https://github.com/movieclaw/movieclaw-plugins/issues/new?template=plugin-feedback.yml&plugin=seed-hub",
-      "downloads": 1,
+      "downloads": 2,
       "latest": "1.0.0",
       "latest_stable": "1.0.0",
       "versions": [
@@ -1498,7 +1498,7 @@
       "screenshots": [],
       "deprecated": null,
       "feedback_url": "https://github.com/movieclaw/movieclaw-plugins/issues/new?template=plugin-feedback.yml&plugin=seed-scheduler",
-      "downloads": 7,
+      "downloads": 8,
       "latest": "1.1.0",
       "latest_stable": "1.1.0",
       "versions": [
@@ -1565,6 +1565,97 @@
       ]
     },
     {
+      "id": "strategy-linkage",
+      "name": "策略联动",
+      "summary": "按明确条件自动通知、移除种子或调整下载器全局设置",
+      "description": "按站点、下载器、资源类别、事件、任务状态、阈值和每日定时组合规则。支持模拟评估、通知、移除种子、调整下载器全局限速与队列，以及请求停滞订阅任务换源。",
+      "category": "tools",
+      "author": {
+        "name": "amzxyz",
+        "url": "https://github.com/amzxyz"
+      },
+      "homepage": "https://github.com/movieclaw/movieclaw-plugins/tree/main/plugins/strategy-linkage",
+      "repository": "https://github.com/movieclaw/movieclaw-plugins/tree/main/plugins/strategy-linkage",
+      "license": "MIT",
+      "origin": "official",
+      "icon": {
+        "url": "https://github.com/movieclaw/movieclaw-plugins/releases/download/catalog/strategy-linkage-icon-4cb7d7aeab880bf5.svg",
+        "sha256": "4cb7d7aeab880bf5d2f8aeb7c1996ccd3eb40b209c03a6c41f2aed74c106cf55",
+        "size": 278
+      },
+      "screenshots": [],
+      "deprecated": null,
+      "feedback_url": "https://github.com/movieclaw/movieclaw-plugins/issues/new?template=plugin-feedback.yml&plugin=strategy-linkage",
+      "downloads": 0,
+      "latest": "1.0.0",
+      "latest_stable": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "prerelease": false,
+          "released_at": "2026-10-27T02:11:12Z",
+          "yanked": null,
+          "notes": "- 首次发布策略联动插件，支持按站点、下载器、资源类别、事件、任务状态、阈值和每日定时组合规则。\n- 支持模拟评估，以及通知、移除种子、下载器全局限速与队列控制、停滞订阅任务换源。\n",
+          "changelog_url": "https://github.com/movieclaw/movieclaw-plugins/releases/tag/strategy-linkage-v1.0.0",
+          "source_url": "https://github.com/movieclaw/movieclaw-plugins/tree/strategy-linkage-v1.0.0/plugins/strategy-linkage",
+          "readme": {
+            "url": "https://raw.githubusercontent.com/movieclaw/movieclaw-plugins/strategy-linkage-v1.0.0/plugins/strategy-linkage/README.md",
+            "sha256": "dbea09c21af0e5b97f6037d08f0d4f9c7fda5b49b6d194189cb800ec5650edf5",
+            "size": 2312
+          },
+          "runtime": "process",
+          "sdk": "^1.0",
+          "requires": {
+            "host-ops": "^1.0",
+            "plugin-data": "^1.0",
+            "plugin-routes": "^1.0",
+            "plugin-events": "^1.0",
+            "kernel/durable-events": "^1.0",
+            "download.completed": "^2.0",
+            "download.imported": "^1.0",
+            "library.ingest.completed": "^1.0",
+            "library.files.added": "^2.0",
+            "library.items.arrived": "^1.0",
+            "subscription.download_started": "^1.0",
+            "subscription.fulfilled": "^2.0"
+          },
+          "platforms": [
+            "any"
+          ],
+          "permissions": {
+            "operations": [
+              "site.list",
+              "site.catalog",
+              "dl.list",
+              "dl.tasks",
+              "dl.torrent.delete",
+              "dl.torrent.replace",
+              "dl.limits",
+              "dl.limits.set",
+              "dl.file-sources.list",
+              "library.items.relations",
+              "library.list"
+            ],
+            "paths": [],
+            "network": false,
+            "callbacks": [],
+            "events": []
+          },
+          "web": true,
+          "dependencies": null,
+          "artifacts": [
+            {
+              "platform": "any",
+              "filename": "strategy-linkage-1.0.0.mcplugin",
+              "url": "https://github.com/movieclaw/movieclaw-plugins/releases/download/strategy-linkage-v1.0.0/strategy-linkage-1.0.0.mcplugin",
+              "sha256": "ebce3bf30522a63e500372132c3db8c40e4b5aac09c2f57a329e439789efab92",
+              "size": 40678
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "trakt-sync",
       "name": "Trakt 自动追踪",
       "summary": "将 MovieClaw 播放活动同步到各成员自己的 Trakt 账号",
@@ -1582,7 +1673,7 @@
       "screenshots": [],
       "deprecated": null,
       "feedback_url": "https://github.com/o1xhack/movieclaw-trakt/issues/new",
-      "downloads": 4,
+      "downloads": 6,
       "latest": "0.2.3",
       "latest_stable": "0.2.3",
       "versions": [
@@ -1662,7 +1753,7 @@
       "screenshots": [],
       "deprecated": null,
       "feedback_url": "https://github.com/movieclaw/movieclaw-plugins/issues/new?template=plugin-feedback.yml&plugin=tv-home",
-      "downloads": 1,
+      "downloads": 2,
       "latest": "0.1.0",
       "latest_stable": "0.1.0",
       "versions": [
@@ -1754,7 +1845,7 @@
       "screenshots": [],
       "deprecated": null,
       "feedback_url": "https://github.com/movieclaw/movieclaw-plugins/issues/new?template=plugin-feedback.yml&plugin=watch-friends",
-      "downloads": 10,
+      "downloads": 13,
       "latest": "0.2.1",
       "latest_stable": "0.2.1",
       "versions": [
