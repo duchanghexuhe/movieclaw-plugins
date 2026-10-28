@@ -1,6 +1,6 @@
 {
   "schema": 2,
-  "generated_at": "2026-10-27T02:11:12Z",
+  "generated_at": "2026-10-28T13:20:12Z",
   "signed": true,
   "key_id": "catalog-1",
   "repository": "https://github.com/movieclaw/movieclaw-plugins",
@@ -27,10 +27,113 @@
       "screenshots": [],
       "deprecated": null,
       "feedback_url": "https://github.com/movieclaw/movieclaw-plugins/issues/new?template=plugin-feedback.yml&plugin=cloud-115",
-      "downloads": 47,
-      "latest": "0.1.0-beta.2",
+      "downloads": 49,
+      "latest": "0.1.0-beta.3",
       "latest_stable": null,
       "versions": [
+        {
+          "version": "0.1.0-beta.3",
+          "prerelease": true,
+          "released_at": "2026-10-28T13:20:12Z",
+          "yanked": null,
+          "notes": "- 整树列举带上被列目录的路径链（115 列目录的响应里本来就有，不多发请求）。配合新版 MovieClaw，网盘里有变化时\n  只重新列有变化的那个目录，不再把整个库文件夹列一遍（#986）；老版本 MovieClaw 照旧可用。\n",
+          "changelog_url": "https://github.com/movieclaw/movieclaw-plugins/releases/tag/cloud-115-v0.1.0-beta.3",
+          "source_url": "https://github.com/movieclaw/movieclaw-plugins/tree/cloud-115-v0.1.0-beta.3/plugins/cloud-115",
+          "readme": {
+            "url": "https://raw.githubusercontent.com/movieclaw/movieclaw-plugins/cloud-115-v0.1.0-beta.3/plugins/cloud-115/README.md",
+            "sha256": "af782bde5017498d4c6bba5a13ba46e4eea40e429cc775ce30e1ebcabd1d6dd0",
+            "size": 1842
+          },
+          "runtime": "process",
+          "sdk": "^1.0",
+          "requires": {
+            "drive-backends": "^1.4"
+          },
+          "platforms": [
+            "any"
+          ],
+          "permissions": {
+            "operations": [],
+            "paths": [],
+            "network": true,
+            "callbacks": [],
+            "events": []
+          },
+          "web": false,
+          "dependencies": {
+            "lock": {
+              "url": "https://raw.githubusercontent.com/movieclaw/movieclaw-plugins/cloud-115-v0.1.0-beta.3/plugins/cloud-115/requirements.lock",
+              "sha256": "d8bbd424ed1f368edb1d971cdde22ab8d3a7ce673366a65fdba59558bb070f19",
+              "size": 20924
+            },
+            "packages": [
+              {
+                "name": "ecdsa",
+                "version": "0.19.2",
+                "native": false
+              },
+              {
+                "name": "lz4",
+                "version": "4.4.5",
+                "native": true
+              },
+              {
+                "name": "p115cipher",
+                "version": "0.0.6",
+                "native": false
+              },
+              {
+                "name": "p115pickcode",
+                "version": "0.0.5.4",
+                "native": false
+              },
+              {
+                "name": "pycryptodome",
+                "version": "4.0.1",
+                "native": true
+              },
+              {
+                "name": "python-asynctools",
+                "version": "0.2.2",
+                "native": false
+              },
+              {
+                "name": "python-decotools",
+                "version": "0.0.4",
+                "native": false
+              },
+              {
+                "name": "python-filewrap",
+                "version": "0.3.1.1",
+                "native": false
+              },
+              {
+                "name": "python-property",
+                "version": "0.0.3",
+                "native": false
+              },
+              {
+                "name": "python-undefined",
+                "version": "0.0.4",
+                "native": false
+              },
+              {
+                "name": "six",
+                "version": "1.17.0",
+                "native": false
+              }
+            ]
+          },
+          "artifacts": [
+            {
+              "platform": "any",
+              "filename": "cloud-115-0.1.0-beta.3.mcplugin",
+              "url": "https://github.com/movieclaw/movieclaw-plugins/releases/download/cloud-115-v0.1.0-beta.3/cloud-115-0.1.0-beta.3.mcplugin",
+              "sha256": "8fa62579430d878982c7f1dfd8f6ad91dbe04e94306c551c17f9573df5ec64b7",
+              "size": 47444
+            }
+          ]
+        },
         {
           "version": "0.1.0-beta.2",
           "prerelease": true,
@@ -257,7 +360,7 @@
       "screenshots": [],
       "deprecated": null,
       "feedback_url": "https://github.com/movieclaw/movieclaw-plugins/issues/new?template=plugin-feedback.yml&plugin=douban-hot-subscribe",
-      "downloads": 4,
+      "downloads": 5,
       "latest": "1.1.0",
       "latest_stable": "1.1.0",
       "versions": [
@@ -438,7 +541,7 @@
       "screenshots": [],
       "deprecated": null,
       "feedback_url": "https://github.com/movieclaw/movieclaw-plugins/issues/new?template=plugin-feedback.yml&plugin=douban-wish",
-      "downloads": 4,
+      "downloads": 5,
       "latest": "1.1.0",
       "latest_stable": "1.1.0",
       "versions": [
@@ -741,7 +844,7 @@
       "screenshots": [],
       "deprecated": null,
       "feedback_url": "https://github.com/movieclaw/movieclaw-plugins/issues/new?template=plugin-feedback.yml&plugin=notifyhub",
-      "downloads": 8,
+      "downloads": 9,
       "latest": "2.3.0",
       "latest_stable": "2.3.0",
       "versions": [
@@ -828,7 +931,7 @@
       "screenshots": [],
       "deprecated": null,
       "feedback_url": "https://github.com/movieclaw/movieclaw-plugins/issues/new?template=plugin-feedback.yml&plugin=openlist-direct-link",
-      "downloads": 9,
+      "downloads": 10,
       "latest": "0.1.0",
       "latest_stable": "0.1.0",
       "versions": [
@@ -1104,7 +1207,7 @@
       "screenshots": [],
       "deprecated": null,
       "feedback_url": "https://github.com/movieclaw/movieclaw-plugins/issues/new?template=plugin-feedback.yml&plugin=pt-keepalive",
-      "downloads": 4,
+      "downloads": 6,
       "latest": "0.2.2",
       "latest_stable": "0.2.2",
       "versions": [
@@ -1179,7 +1282,7 @@
       "screenshots": [],
       "deprecated": null,
       "feedback_url": "https://github.com/movieclaw/movieclaw-plugins/issues/new?template=plugin-feedback.yml&plugin=pt-site-pack",
-      "downloads": 24,
+      "downloads": 30,
       "latest": "0.2.1",
       "latest_stable": "0.2.1",
       "versions": [
@@ -1586,7 +1689,7 @@
       "screenshots": [],
       "deprecated": null,
       "feedback_url": "https://github.com/movieclaw/movieclaw-plugins/issues/new?template=plugin-feedback.yml&plugin=strategy-linkage",
-      "downloads": 0,
+      "downloads": 3,
       "latest": "1.0.0",
       "latest_stable": "1.0.0",
       "versions": [
@@ -1673,7 +1776,7 @@
       "screenshots": [],
       "deprecated": null,
       "feedback_url": "https://github.com/o1xhack/movieclaw-trakt/issues/new",
-      "downloads": 6,
+      "downloads": 7,
       "latest": "0.2.3",
       "latest_stable": "0.2.3",
       "versions": [
